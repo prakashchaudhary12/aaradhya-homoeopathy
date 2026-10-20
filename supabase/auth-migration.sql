@@ -3,8 +3,6 @@
 -- It intentionally does not create a public Doctor signup.
 
 alter table public.doctors add column if not exists phone text;
-create unique index if not exists doctors_phone_idx
-  on public.doctors(public.normalize_phone(phone)) where phone is not null;
 
 create or replace function public.normalize_phone(p_phone text)
 returns text

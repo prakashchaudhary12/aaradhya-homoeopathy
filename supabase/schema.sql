@@ -135,6 +135,7 @@ create table if not exists public.patient_documents (
   created_at timestamptz not null default now()
 );
 
+alter table public.doctors add column if not exists phone text;
 -- Seed the two clinic doctors with stable IDs.
 insert into public.doctors (id, doctor_code, full_name, qualification)
 values

@@ -53,7 +53,7 @@ async function apiGet(action, params = {}) {
         .order("appointment_date", { ascending: true })
         .order("appointment_time", { ascending: true });
 
-      if (params.doctor) q = q.eq("doctors.doctor_code", params.doctor);
+
       if (params.patientMobile) q = q.eq("patients.phone", params.patientMobile);
 
       const { data, error } = await q;

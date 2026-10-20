@@ -154,10 +154,14 @@ async function apiPost(action, data = {}) {
     }
 
     if (action === "setAvailability") {
+      const { data: userResult, error: userError } = await sb.auth.getUser();
+      if (userError || !userResult.user) throw new Error("Please sign in as a doctor first.");
+
       const { data: doctorRow, error: doctorError } = await sb
         .from("doctors")
-        .select("id")
-        .eq("doctor_code", data.doctor)
+        .select("id,doctor_code,full_name")
+        .eq("user_id", userResult.user.id)
+        .eq("active", true)
         .single();
       if (doctorError) throw doctorError;
 
@@ -177,10 +181,67 @@ async function apiPost(action, data = {}) {
       return { configured: true, ok: true, availability: row };
     }
 
+    if (action === "createPrescription") {
+      const { data: userResult, error: userError } = await sb.auth.getUser();
+      if (userError || !userResult.user) throw new Error("Please sign in as a doctor first.");
+
+      const { data: doctorRow, error: doctorError } = await sb
+        .from("doctors")
+        .select("id,full_name")
+        .eq("user_id", userResult.user.id)
+        .eq("active", true)
+        .single();
+      if (doctorError) throw doctorError;
+
+      const { data: rx, error: rxError } = await sb
+        .from("prescriptions")
+        .insert({
+          appointment_id: data.appointmentId,
+          patient_id: data.patientId,
+          doctor_id: doctorRow.id,
+          complaints: data.complaints || null,
+          diagnosis: data.diagnosis || null,
+          advice: data.advice || null
+        })
+        .select()
+        .single();
+      if (rxError) throw rxError;
+
+      const medicines = Array.isArray(data.medicines) ? data.medicines.filter(m => m.name) : [];
+      if (medicines.length) {
+        const { error: medError } = await sb
+          .from("prescription_medicines")
+          .insert(medicines.map((m, i) => ({
+            prescription_id: rx.id,
+            medicine_name: m.name,
+            dose: m.dose || null,
+            frequency: m.frequency || null,
+            instructions: m.instructions || null,
+            sort_order: i
+          })));
+        if (medError) {
+          await sb.from("prescriptions").delete().eq("id", rx.id);
+          throw medError;
+        }
+      }
+
+      return { configured: true, ok: true, prescription: rx };
+    }
+
     if (action === "createOrder") {
+      const { data: userResult, error: userError } = await sb.auth.getUser();
+      if (userError || !userResult.user) throw new Error("Please sign in first.");
+
+      const { data: patientRow, error: patientError } = await sb
+        .from("patients")
+        .select("id")
+        .eq("user_id", userResult.user.id)
+        .single();
+      if (patientError) throw patientError;
+
       const { data: row, error } = await sb
         .from("medicine_orders")
-        .insert(data)
+        .insert({...data, patient_id: patientRow.id})
         .select()
         .single();
       if (error) throw error;

@@ -117,6 +117,10 @@ grant execute on function public.claim_doctor_account(text) to authenticated;
 revoke all on function public.normalize_phone(text) from public;
 grant execute on function public.normalize_phone(text) to anon, authenticated;
 
+-- Do not expose doctor phone numbers or user IDs to anonymous visitors.
+drop policy if exists "doctors public read active" on public.doctors;
+revoke select on public.doctors from anon;
+
 drop policy if exists "patients doctor select" on public.patients;
 create policy "patients doctor select" on public.patients
 for select to authenticated

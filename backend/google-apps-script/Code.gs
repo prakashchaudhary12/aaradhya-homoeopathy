@@ -45,6 +45,7 @@ function doGet(e) {
     if(action==="availability") return json_({ok:true,data:getAvailability_(e.parameter.doctor,e.parameter.date)});
     if(action==="appointments") return json_({ok:true,data:getAppointments_(e.parameter.doctor,e.parameter.patientMobile,e.parameter.status)});
     if(action==="patient") return json_({ok:true,data:getPatientByMobile_(e.parameter.mobile)});
+    if(action==="prescriptions") return json_({ok:true,data:getPrescriptions_(e.parameter.patientId,e.parameter.doctor)});
     return json_({ok:false,error:"Unknown GET action"});
   } catch(err) { return json_({ok:false,error:String(err)}); }
 }
@@ -105,6 +106,12 @@ function getAppointments_(doctor,patientMobile,status){
   const sh=getOrCreateSpreadsheet_().getSheetByName(SHEETS.APPOINTMENTS);
   const vals=sh.getDataRange().getValues(); const headers=vals.shift();
   return vals.filter(r=>r[0]&&(!doctor||String(r[1])===String(doctor))&&(!patientMobile||String(r[4])===String(patientMobile))&&(!status||String(r[12])===String(status))).map(r=>objectFromRow_(headers,r));
+}
+
+function getPrescriptions_(patientId,doctor){
+  const sh=getOrCreateSpreadsheet_().getSheetByName(SHEETS.PRESCRIPTIONS);
+  const vals=sh.getDataRange().getValues(); const headers=vals.shift();
+  return vals.filter(r=>r[0]&&(!patientId||String(r[2])===String(patientId))&&(!doctor||String(r[4])===String(doctor))).map(r=>objectFromRow_(headers,r));
 }
 
 function findAppointmentConflict_(sh,doctor,date,time){

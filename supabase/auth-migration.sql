@@ -17,8 +17,19 @@ drop index if exists doctors_phone_idx;
 create unique index doctors_phone_idx
   on public.doctors(public.normalize_phone(phone)) where phone is not null;
 
-create unique index if not exists patients_phone_normalized_idx
-  on public.patients(public.normalize_phone(phone));
+do $
+begin
+  if not exists (
+    select 1
+    from public.patients
+    where public.normalize_phone(phone) <> ''
+    group by public.normalize_phone(phone)
+    having count(*) > 1
+  ) then
+    create unique index if not exists patients_phone_normalized_idx
+      on public.patients(public.normalize_phone(phone));
+  end if;
+end $;
 
 create or replace function public.claim_patient_account()
 returns jsonb

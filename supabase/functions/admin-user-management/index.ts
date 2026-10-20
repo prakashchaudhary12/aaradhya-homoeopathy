@@ -328,7 +328,7 @@ export default {
       if (doctor.user_id) {
         const authUpdate = await ctx.supabaseAdmin.auth.admin.updateUserById(
           doctor.user_id,
-          { phone, user_metadata: { phone_managed_by_admin: true } }
+          { phone }
         );
         if (authUpdate.error) return json({ error: authUpdate.error.message }, 400);
       }

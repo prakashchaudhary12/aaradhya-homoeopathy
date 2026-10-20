@@ -10,5 +10,5 @@ function setLanguage(){return;}\n
     dots.forEach((d,i)=>d.classList.toggle('active',i===n));
   }
   dots.forEach((d,i)=>d.addEventListener('click',()=>showSlide(i)));
-  setInterval(()=>showSlide((current+1)%slides.length),15000);
+  setInterval(()=>showSlide((current+1)%slides.length),2000);
 })();

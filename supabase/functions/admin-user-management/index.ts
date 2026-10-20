@@ -150,6 +150,24 @@ export default {
           return json({ error: "Doctor code must be reshma or op" }, 400);
         }
 
+        const { data: doctor, error: doctorReadError } = await ctx.supabaseAdmin
+          .from("doctors")
+          .select("id,user_id")
+          .eq("doctor_code", doctorCode)
+          .single();
+
+        if (doctorReadError) {
+          await ctx.supabaseAdmin.auth.admin.deleteUser(user.id);
+          await ctx.supabaseAdmin.from("profiles").delete().eq("id", user.id);
+          return json({ error: doctorReadError.message }, 400);
+        }
+
+        if (doctor.user_id && doctor.user_id !== user.id) {
+          await ctx.supabaseAdmin.auth.admin.deleteUser(user.id);
+          await ctx.supabaseAdmin.from("profiles").delete().eq("id", user.id);
+          return json({ error: "That doctor account is already linked to another Auth user." }, 400);
+        }
+
         const { error: doctorError } = await ctx.supabaseAdmin
           .from("doctors")
           .update({
@@ -163,6 +181,40 @@ export default {
           await ctx.supabaseAdmin.auth.admin.deleteUser(user.id);
           await ctx.supabaseAdmin.from("profiles").delete().eq("id", user.id);
           return json({ error: doctorError.message }, 400);
+        }
+      }
+
+      if (role === "patient") {
+        const phone = String(body?.phone || "").trim();
+        const { data: existingPatient } = await ctx.supabaseAdmin
+          .from("patients")
+          .select("id,user_id")
+          .eq("phone", phone)
+          .maybeSingle();
+
+        if (existingPatient?.user_id && existingPatient.user_id !== user.id) {
+          await ctx.supabaseAdmin.auth.admin.deleteUser(user.id);
+          await ctx.supabaseAdmin.from("profiles").delete().eq("id", user.id);
+          return json({ error: "A patient already uses this mobile number." }, 400);
+        }
+
+        const patientWrite = existingPatient?.id
+          ? await ctx.supabaseAdmin.from("patients").update({
+              user_id: user.id,
+              full_name: fullName,
+              phone,
+              updated_at: new Date().toISOString(),
+            }).eq("id", existingPatient.id)
+          : await ctx.supabaseAdmin.from("patients").insert({
+              user_id: user.id,
+              full_name: fullName,
+              phone,
+            });
+
+        if (patientWrite.error) {
+          await ctx.supabaseAdmin.auth.admin.deleteUser(user.id);
+          await ctx.supabaseAdmin.from("profiles").delete().eq("id", user.id);
+          return json({ error: patientWrite.error.message }, 400);
         }
       }
 

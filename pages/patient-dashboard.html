@@ -18,7 +18,7 @@ async function loadFromServer(){
    document.getElementById('a').innerHTML='<b>'+(a.Date||'')+'</b><br>'+(a.Time||'')+'<br>'+dn+'<br><span class="badge green">'+(a.Status||'Confirmed')+'</span>';
    await loadPrescriptions(a['Patient ID']);
   } else {
-   await loadPrescriptions(local.patientId);
+   await loadPrescriptions(local.patientId||local['Patient ID']);
   }
  }catch(e){}
 }

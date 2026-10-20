@@ -30,7 +30,7 @@ async function book(){
  const appointment={doctor:document.getElementById('doctor').value,mobile,name,phone:mobile,date:selectedDate,time:selectedSlot,duration:15,reason:document.getElementById('reason').value,mode:sunday?'online':document.getElementById('mode').value,payment:document.getElementById('payment').value,status:'Confirmed'};
  try{
    const result=await apiPost('bookAppointment',appointment);
-   if(result.configured&&result.ok){localStorage.setItem('appointment',JSON.stringify({...appointment,...result.appointment}));}
+   if(result.configured&&result.ok){localStorage.setItem('appointment',JSON.stringify({...appointment,...result.appointment,patientId:result.appointment['Patient ID'],appointmentId:result.appointment['Appointment ID']}));}
    else{const all=JSON.parse(localStorage.getItem('appointments')||'[]');const saved={...appointment,id:Date.now().toString()};all.push(saved);localStorage.setItem('appointments',JSON.stringify(all));localStorage.setItem('appointment',JSON.stringify(saved));}
    location.href='confirmation.html';
  }catch(err){alert('Unable to save booking right now. Please try again.')}

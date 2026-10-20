@@ -5,43 +5,36 @@
 <header class="topbar"><a class="brand" href="../index.html"><span class="brand-mark">✚</span><div><strong>Aaradhya's Homoeopathy</strong><small>Doctor portal</small></div></a><a class="btn btn-outline" href="../index.html">Back to website</a></header>
 <main class="login-wrap"><div class="login-card">
 <span class="eyebrow">DOCTOR PORTAL</span><h1>Doctor Login</h1>
-<p style="color:var(--muted)">Use the mobile number registered for the selected doctor.</p>
-<div class="form-group"><label>Doctor</label><select id="doctor"><option value="reshma">Dr. Reshma Singh — MD (Hom) Kolkata</option><option value="op">Dr. O.P. Singh — MD (Hom) Kolkata</option></select></div>
-<div class="form-group"><label>Registered mobile number</label><input id="mobile" type="tel" inputmode="tel" placeholder="+91 98765 43210"></div>
-<button id="sendBtn" class="btn btn-primary full" onclick="sendOtp()">Send OTP</button>
-<div id="otpBox" style="display:none;margin-top:18px"><div class="form-group"><label>OTP</label><input id="otp" inputmode="numeric" maxlength="6" placeholder="Enter the 6-digit OTP"></div><button id="verifyBtn" class="btn btn-dark full" onclick="verifyOtp()">Verify & Continue</button></div>
-<div id="msg" class="notice">The doctor's phone number must be registered in the Supabase doctors table.</div>
+<p style="color:var(--muted)">Use the registered mobile number and password provided for your doctor account.</p>
+<div class="form-group"><label>Mobile number</label><input id="mobile" type="tel" inputmode="tel" autocomplete="tel" placeholder="+91 98765 43210"></div>
+<div class="form-group"><label>Password</label><input id="password" type="password" autocomplete="current-password" placeholder="Enter password"></div>
+<button id="loginBtn" class="btn btn-primary full" onclick="login()">Login to Doctor Dashboard</button>
+<div id="msg" class="notice">Doctor accounts are created by the clinic administrator. Public doctor signup is disabled.</div>
+<p class="center"><a href="login.html">Patient Login →</a> · <a href="admin-login.html">Admin Login →</a></p>
 </div></main>
 <script src="../js/config.js"></script>
 <script>
-function cleanPhone(v){return String(v||'').replace(/[^0-9+]/g,'');}
-function showMsg(t){document.getElementById('msg').textContent=t;}
-async function sendOtp(){
- const phone=cleanPhone(document.getElementById('mobile').value);
- if(phone.replace(/\\D/g,'').length<10){showMsg('Please enter a valid mobile number.');return;}
- document.getElementById('sendBtn').disabled=true;
- try{
-   const sb=await getSupabaseClient();
-   const result=await sb.auth.signInWithOtp({phone,options:{data:{role:'doctor'}}});
-   if(result.error) throw result.error;
-   document.getElementById('otpBox').style.display='block';
-   showMsg('OTP sent. Enter the code received on the registered doctor mobile.');
- }catch(e){showMsg(e.message||'Unable to send code. Check Supabase Phone Auth and SMS provider settings.');}
- finally{document.getElementById('sendBtn').disabled=false;}
+function cleanPhone(v){
+ const digits=String(v||'').replace(/\D/g,'');
+ if(digits.length===10)return '+91'+digits;
+ if(digits.length===12&&digits.startsWith('91'))return '+'+digits;
+ return String(v||'').trim();
 }
-async function verifyOtp(){
- const phone=cleanPhone(document.getElementById('mobile').value), token=document.getElementById('otp').value.trim(), doctor=document.getElementById('doctor').value;
- if(token.length!==6){showMsg('Enter the 6-digit code.');return;}
- document.getElementById('verifyBtn').disabled=true;
+async function login(){
+ const phone=cleanPhone(document.getElementById('mobile').value),password=document.getElementById('password').value;
+ const msg=document.getElementById('msg');
+ if(phone.replace(/\D/g,'').length<10)return msg.textContent='Please enter a valid mobile number.';
+ if(!password)return msg.textContent='Please enter your password.';
+ document.getElementById('loginBtn').disabled=true;
  try{
-   const sb=await getSupabaseClient();
-   const result=await sb.auth.verifyOtp({phone,token,type:'sms'});
-   if(result.error) throw result.error;
-   const claim=await sb.rpc('claim_doctor_account',{p_doctor_code:doctor});
-   if(claim.error) throw claim.error;
-   localStorage.setItem('doctorProfile',JSON.stringify(claim.data));
-   location.href='doctor-dashboard.html';
- }catch(e){showMsg(e.message||'Doctor verification failed.');}
- finally{document.getElementById('verifyBtn').disabled=false;}
+  const sb=await getSupabaseClient();
+  const result=await sb.auth.signInWithPassword({phone,password});
+  if(result.error)throw result.error;
+  const claim=await sb.rpc('claim_doctor_account_by_phone');
+  if(claim.error)throw claim.error;
+  localStorage.setItem('doctorProfile',JSON.stringify(claim.data));
+  location.href='doctor-dashboard.html';
+ }catch(e){msg.textContent=e.message||'Unable to sign in.';}
+ finally{document.getElementById('loginBtn').disabled=false;}
 }
 </script></body></html>

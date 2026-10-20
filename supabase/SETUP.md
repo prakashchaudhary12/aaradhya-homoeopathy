@@ -64,3 +64,31 @@ set role='admin', full_name=excluded.full_name;
 The admin login page checks this `profiles.role = 'admin'` value before opening the admin dashboard.
 
 Never put the database password or Supabase secret/service-role key in GitHub or browser JavaScript.
+
+
+## Forgot password by mobile
+
+Patient and doctor login pages now include **Forgot Password?**.
+
+Flow:
+1. User enters the 10-digit mobile number.
+2. The site sends a Supabase SMS OTP only for the selected account type.
+3. User enters the OTP.
+4. User enters and confirms a new password.
+5. The verified Supabase Auth session is used to update the password.
+
+The public function is:
+`supabase/functions/request-password-reset/index.ts`
+
+Because this function is called before the user is authenticated, deploy it with JWT verification disabled. The repository includes `supabase/config.toml`:
+
+```toml
+[functions.request-password-reset]
+verify_jwt = false
+```
+
+After deployment, enable the Supabase **Phone** provider and configure an SMS provider (for production, configure Twilio or another supported provider). Phone OTP flows require an SMS provider. Supabase also recommends rate limits/CAPTCHA to control SMS abuse.
+
+The reset endpoint deliberately returns the same message whether the account exists, so the browser does not get a direct account-existence response.
+
+Do not expose a Supabase secret/service-role key in the website. The secret key is used only inside the Edge Function.

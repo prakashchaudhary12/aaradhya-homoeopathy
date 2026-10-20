@@ -26,10 +26,10 @@ function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&l
 async function init(){
  try{
   const sb=await getSupabaseClient();const session=await sb.auth.getSession();if(!session.data.session){location.href='doctor-login.html';return;}
-  const user=session.data.session.user;
-  const {data:doc,error}=await sb.from('doctors').select('id,doctor_code,full_name').eq('user_id',user.id).eq('active',true).single();
-  if(error)throw error;
-  document.getElementById('doctorHeader').textContent=doc.full_name;document.getElementById('welcome').textContent='Welcome, '+doc.full_name;document.getElementById('date').value=todayISO();document.getElementById('rxDate').value=todayISO();
+  const doctorResult=await sb.rpc('get_my_doctor');
+  if(doctorResult.error)throw doctorResult.error;
+  const doc=doctorResult.data;
+  document.getElementById('doctorHeader').textContent=doc.fullName;document.getElementById('welcome').textContent='Welcome, '+doc.fullName;document.getElementById('date').value=todayISO();document.getElementById('rxDate').value=todayISO();
   await render();
  }catch(e){document.getElementById('appointmentRows').innerHTML='<tr><td colspan="7">'+esc(e.message||'Unable to load doctor dashboard.')+'</td></tr>';}
 }

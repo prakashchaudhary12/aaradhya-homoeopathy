@@ -1,5 +1,5 @@
 // Paste your deployed Google Apps Script /exec URL here.
-const API_BASE_URL = "";
+const API_BASE_URL = "https://script.google.com/macros/s/AKfycbwiM_ypsdremrkAN2Rkm-7KDTBEFp2lNDpzCpLvxZq9fEgxrVkJEBeP4qOIFLcnvZ__Lw/exec";
 
 async function apiGet(action, params={}) {
   if (!API_BASE_URL) return {ok:false,configured:false};

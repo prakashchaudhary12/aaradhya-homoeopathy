@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Admin Login | Aaradhya's Homoeopathy</title><link rel="stylesheet" href="../css/style.css"></head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html"><span class="brand-mark">✚</span><div><strong>Aaradhya's Homoeopathy</strong><small>Admin portal</small></div></a><a class="btn btn-outline" href="../index.html">Back to website</a></header>
+<main class="login-wrap"><div class="login-card">
+<span class="eyebrow">ADMIN PORTAL</span><h1>Admin Login</h1>
+<p style="color:var(--muted)">Use the clinic administrator email and password.</p>
+<div class="form-group"><label>Email</label><input id="email" type="email" autocomplete="username" placeholder="admin@example.com"></div>
+<div class="form-group"><label>Password</label><input id="password" type="password" autocomplete="current-password" placeholder="Enter password"></div>
+<button id="loginBtn" class="btn btn-primary full" onclick="login()">Login to Admin Dashboard</button>
+<div id="msg" class="notice">Admin accounts are created and assigned by the clinic owner in Supabase.</div>
+<p class="center"><a href="login.html">Patient Login →</a> · <a href="doctor-login.html">Doctor Login →</a></p>
+</div></main>
+<script src="../js/config.js"></script>
+<script>
+async function login(){
+ const email=document.getElementById('email').value.trim(),password=document.getElementById('password').value,msg=document.getElementById('msg');
+ if(!email||!password){msg.textContent='Enter both email and password.';return;}
+ document.getElementById('loginBtn').disabled=true;
+ try{
+  const sb=await getSupabaseClient();
+  const result=await sb.auth.signInWithPassword({email,password});
+  if(result.error)throw result.error;
+  const profile=await sb.from('profiles').select('role,full_name').eq('id',result.data.user.id).single();
+  if(profile.error)throw profile.error;
+  if(profile.data.role!=='admin'){await sb.auth.signOut();throw new Error('This account is not an administrator.');}
+  location.href='admin-dashboard.html';
+ }catch(e){msg.textContent=e.message||'Unable to sign in.';}
+ finally{document.getElementById('loginBtn').disabled=false;}
+}
+</script></body></html>

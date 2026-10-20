@@ -504,11 +504,13 @@ begin
     insert into public.patients(user_id, full_name, phone)
     values(auth.uid(), coalesce((select raw_user_meta_data->>'full_name' from auth.users where id=auth.uid()), 'Patient'), v_phone)
     returning * into v_patient;
-  else
+  elsif v_patient.user_id is null or v_patient.user_id = auth.uid() then
     update public.patients
     set user_id = auth.uid(), phone = v_phone, updated_at = now()
     where id = v_patient.id
     returning * into v_patient;
+  else
+    raise exception 'This phone number is already linked to another patient account';
   end if;
 
   insert into public.profiles(id, role, full_name, phone)
@@ -549,6 +551,10 @@ begin
 
   if v_doctor.phone is null or public.normalize_phone(v_doctor.phone) <> v_phone then
     raise exception 'This phone number is not registered for the selected doctor';
+  end if;
+
+  if v_doctor.user_id is not null and v_doctor.user_id <> auth.uid() then
+    raise exception 'This doctor account is already linked to another login';
   end if;
 
   update public.doctors

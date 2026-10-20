@@ -160,7 +160,7 @@ async function apiPost(action, data = {}) {
       const { data: row, error } = await sb
         .from("availability")
         .upsert({
-          doctor_id: doctorRow.id,
+          doctor_id: doctorRow.doctorId,
           availability_date: data.date,
           start_time: data.startTime,
           end_time: data.endTime,

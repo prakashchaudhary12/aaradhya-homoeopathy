@@ -1,36 +1,60 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Patient Dashboard</title><link rel="stylesheet" href="../css/style.css"></head><body><header class="topbar"><a class="brand" href="../index.html"><span class="brand-mark">✚</span><div><strong>Reshma HomeoCare</strong><small>Patient portal</small></div></a><a class="btn btn-primary" href="booking.html">Book Appointment</a></header><main class="page"><div class="page-title"><span class="eyebrow">PATIENT DASHBOARD</span><h1>Welcome, <span id="n">Patient</span></h1></div><div class="dashboard-grid"><div class="stat"><small>Next appointment</small><strong id="t">—</strong></div><div class="stat"><small>Doctor</small><strong id="doctorName">Dr. Reshma</strong></div><div class="stat"><small>Status</small><strong style="font-size:20px">Confirmed</strong></div><div class="stat"><small>Prescription</small><strong style="font-size:20px">Available</strong></div></div><div class="grid-2"><section class="panel"><h2 style="font-size:25px">Upcoming appointment</h2><div id="a" class="notice"></div><button class="btn btn-dark" onclick="window.open('https://meet.google.com/','_blank')">Join Google Meet</button></section><section class="panel"><h2 style="font-size:25px">Latest prescription</h2><div class="rx"><b>Dr. Reshma Singh</b><div class="medicine-row"><span>Arnica 30</span><span>As advised</span></div><div class="medicine-row"><span>Rhus Tox 30</span><span>As advised</span></div></div><button class="btn btn-primary" onclick="alert('Medicine request sent.')">Request Medicines</button></section></div><section class="panel" style="margin-top:22px"><h2 style="font-size:25px">My prescriptions</h2><div id="prescriptionList"><p style="color:var(--muted)">Loading prescriptions...</p></div></section></main><script src="../js/config.js"></script><script src="../js/config.js"></script><script>
-const local=JSON.parse(localStorage.getItem('appointment')||'{}');
-document.getElementById('n').textContent=local.name||'Patient';
-const localDoctor=local.doctor==='op'?'Dr. O.P. Singh':'Dr. Reshma Singh';
-document.getElementById('doctorName').textContent=localDoctor;
-document.getElementById('t').textContent=local.time||'—';
-document.getElementById('a').innerHTML='<b>'+(local.date||'No appointment')+'</b><br>'+(local.time||'')+'<br>'+localDoctor+'<br><span class="badge green">'+(local.status||'Confirmed')+'</span>';
-async function loadFromServer(){
- if(!local.phone)return;
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Patient Dashboard | Aaradhya's Homoeopathy</title><link rel="stylesheet" href="../css/style.css"></head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html"><span class="brand-mark">✚</span><div><strong>Aaradhya's Homoeopathy</strong><small>Patient portal</small></div></a><nav><button class="btn btn-outline" onclick="logout()">Logout</button><a class="btn btn-primary" href="booking.html">Book Appointment</a></nav></header>
+<main class="page">
+<div class="page-title"><span class="eyebrow">PATIENT DASHBOARD</span><h1>Welcome, <span id="n">Patient</span></h1><p id="phoneText" style="color:var(--muted)"></p></div>
+<div class="dashboard-grid"><div class="stat"><small>Next appointment</small><strong id="t">—</strong></div><div class="stat"><small>Doctor</small><strong id="doctorName">—</strong></div><div class="stat"><small>Status</small><strong id="status" style="font-size:20px">—</strong></div><div class="stat"><small>Prescriptions</small><strong id="rxCount" style="font-size:20px">0</strong></div></div>
+<section class="panel"><h2 style="font-size:25px">Upcoming appointment</h2><div id="a" class="notice">Loading...</div><button id="meetBtn" class="btn btn-dark" style="display:none" onclick="joinMeet()">Join Google Meet</button></section>
+<section class="panel" style="margin-top:22px"><h2 style="font-size:25px">My prescriptions</h2><div id="prescriptionList"><p style="color:var(--muted)">Loading prescriptions...</p></div></section>
+<section class="panel" style="margin-top:22px"><h2 style="font-size:25px">Medicine request</h2><textarea id="orderNotes" rows="3" style="width:100%;padding:13px;border:1px solid var(--line);border-radius:10px;font:inherit" placeholder="Enter the medicines you need"></textarea><button class="btn btn-primary" style="margin-top:12px" onclick="requestMedicines()">Request Medicines</button><div id="orderMsg" class="notice" style="display:none"></div></section>
+</main>
+<script src="../js/config.js"></script>
+<script>
+let latestAppointment=null;
+async function init(){
  try{
-  const result=await apiGet('appointments',{patientMobile:local.phone});
-  if(result.configured&&result.ok&&result.data&&result.data.length){
-   const a=result.data[result.data.length-1];
-   const dn=a.Doctor==='op'?'Dr. O.P. Singh':'Dr. Reshma Singh';
-   document.getElementById('n').textContent=a['Patient Name']||local.name||'Patient';
+  const sb=await getSupabaseClient();
+  const session=await sb.auth.getSession();
+  if(!session.data.session){location.href='login.html';return;}
+  const claim=await sb.rpc('claim_patient_account');
+  if(claim.error) throw claim.error;
+  const profile=claim.data||{};
+  document.getElementById('n').textContent=profile.fullName||'Patient';
+  document.getElementById('phoneText').textContent=profile.phone||'';
+  const r=await apiGet('appointments');
+  if(!r.ok) throw new Error(r.error||'Unable to load appointments');
+  const apps=r.data||[], today=new Date().toISOString().slice(0,10);
+  latestAppointment=apps.find(x=>String(x.Date)>=today&&x.Status!=='Cancelled'&&x.Status!=='Completed')||apps[0];
+  if(latestAppointment){
+   const dn=latestAppointment['Doctor Name']||(latestAppointment.Doctor==='op'?'Dr. O.P. Singh':'Dr. Reshma Singh');
    document.getElementById('doctorName').textContent=dn;
-   document.getElementById('t').textContent=a.Time||'—';
-   document.getElementById('a').innerHTML='<b>'+(a.Date||'')+'</b><br>'+(a.Time||'')+'<br>'+dn+'<br><span class="badge green">'+(a.Status||'Confirmed')+'</span>';
-   await loadPrescriptions(a['Patient ID']);
-  } else {
-   await loadPrescriptions(local.patientId||local['Patient ID']);
+   document.getElementById('t').textContent=(latestAppointment.Date||'')+' '+(latestAppointment.Time||'');
+   document.getElementById('status').textContent=latestAppointment.Status||'Confirmed';
+   document.getElementById('a').innerHTML='<b>'+escapeHtml(latestAppointment.Date)+'</b><br>'+escapeHtml(latestAppointment.Time)+'<br>'+escapeHtml(dn)+'<br>'+escapeHtml(latestAppointment.Mode)+'<br><span class="badge green">'+escapeHtml(latestAppointment.Status)+'</span>';
+   if(latestAppointment['Meet Link'])document.getElementById('meetBtn').style.display='inline-flex';
+  }else{
+   document.getElementById('status').textContent='—';document.getElementById('a').textContent='No appointments found.';
   }
- }catch(e){}
+  await loadPrescriptions();
+ }catch(e){document.getElementById('a').textContent=e.message||'Unable to load your dashboard.';}
 }
-async function loadPrescriptions(patientId){
+async function loadPrescriptions(){
+ const r=await apiGet('prescriptions');
+ if(!r.ok){document.getElementById('prescriptionList').textContent=r.error||'Unable to load prescriptions.';return;}
+ const list=r.data||[];document.getElementById('rxCount').textContent=list.length;
  const box=document.getElementById('prescriptionList');
- if(!patientId){box.innerHTML='<p style="color:var(--muted)">No prescriptions available yet.</p>';return;}
- try{
-  const result=await apiGet('prescriptions',{patientId});
-  if(result.configured&&result.ok&&result.data&&result.data.length){
-   box.innerHTML=result.data.map(r=>'<div class="rx"><b>'+r['Prescription ID']+'</b><div>'+r.Date+' · '+r.Doctor+'</div><div style="margin-top:8px"><a class="btn btn-outline" target="_blank" href="https://docs.google.com/document/d/'+r['Google Doc ID']+'/edit">View Google Doc</a> <a class="btn btn-primary" target="_blank" href="https://drive.google.com/file/d/'+r['PDF File ID']+'/view">View PDF</a></div></div>').join('');
-  } else box.innerHTML='<p style="color:var(--muted)">No prescriptions available yet.</p>';
- }catch(e){box.innerHTML='<p style="color:var(--muted)">No prescriptions available yet.</p>';}
+ box.innerHTML=list.length?list.map(x=>'<div class="rx"><b>'+escapeHtml(x['Prescription Code'])+'</b><div>'+escapeHtml(x.Date)+' · '+escapeHtml(x.Doctor)+'</div>'+((x.Diagnosis||'')?'<div style="margin-top:7px"><b>Diagnosis:</b> '+escapeHtml(x.Diagnosis)+'</div>':'')+((x.Advice||'')?'<div style="margin-top:7px"><b>Advice:</b> '+escapeHtml(x.Advice)+'</div>':'')+'</div>').join(''):'<p style="color:var(--muted)">No prescriptions available yet.</p>';
 }
-loadFromServer();
+function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function joinMeet(){if(latestAppointment&&latestAppointment['Meet Link'])window.open(latestAppointment['Meet Link'],'_blank');else alert('The doctor has not added a Google Meet link yet.');}
+async function requestMedicines(){
+ const notes=document.getElementById('orderNotes').value.trim(); if(!notes)return alert('Enter the medicines you need.');
+ const m=document.getElementById('orderMsg');
+ try{const r=await apiPost('createOrder',{items:[{request:notes}],notes});if(!r.ok)throw new Error(r.error);m.style.display='block';m.textContent='Medicine request submitted.';document.getElementById('orderNotes').value='';}
+ catch(e){m.style.display='block';m.textContent=e.message||'Unable to submit medicine request.';}
+}
+async function logout(){const sb=await getSupabaseClient();await sb.auth.signOut();location.href='login.html';}
+init();
 </script></body></html>

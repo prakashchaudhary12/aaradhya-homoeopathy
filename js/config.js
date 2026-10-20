@@ -154,15 +154,7 @@ async function apiPost(action, data = {}) {
     }
 
     if (action === "setAvailability") {
-      const { data: userResult, error: userError } = await sb.auth.getUser();
-      if (userError || !userResult.user) throw new Error("Please sign in as a doctor first.");
-
-      const { data: doctorRow, error: doctorError } = await sb
-        .from("doctors")
-        .select("id,doctor_code,full_name")
-        .eq("user_id", userResult.user.id)
-        .eq("active", true)
-        .single();
+      const { data: doctorRow, error: doctorError } = await sb.rpc("get_my_doctor");
       if (doctorError) throw doctorError;
 
       const { data: row, error } = await sb

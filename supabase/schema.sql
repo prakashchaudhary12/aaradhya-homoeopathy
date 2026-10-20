@@ -458,21 +458,6 @@ grant execute on function public.book_appointment_public(text,text,text,date,tex
 
 revoke select on public.doctors from anon, authenticated;
 grant select (id, doctor_code, full_name, qualification, active) on public.doctors to anon, authenticated;
-
--- Helpful views for the frontend. These are security-barrier views over RLS-protected base tables.
-create or replace view public.public_doctor_schedule as
-select
-  a.id,
-  d.doctor_code,
-  a.appointment_date,
-  a.appointment_time,
-  a.duration_minutes,
-  a.status,
-  a.mode
-from public.appointments a
-join public.doctors d on d.id = a.doctor_id;
-
-grant select on public.doctors to authenticated;
 grant select on public.availability to anon, authenticated;
 
 

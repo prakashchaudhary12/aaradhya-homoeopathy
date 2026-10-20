@@ -1,33 +1,293 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Admin Dashboard | Aaradhya's Homoeopathy</title><link rel="stylesheet" href="../css/style.css"></head>
-<body><header class="topbar"><a class="brand" href="../index.html"><span class="brand-mark">✚</span><div><strong>Aaradhya's Homoeopathy</strong><small>Admin portal</small></div></a><nav><button class="btn btn-outline" onclick="logout()">Logout</button></nav></header>
-<main class="page"><div class="page-title"><span class="eyebrow">ADMIN PORTAL</span><h1>Clinic Dashboard</h1><p style="color:var(--muted)">Clinic-wide access is controlled by Supabase authentication and RLS.</p></div>
-<div class="dashboard-grid"><div class="stat"><small>Patients</small><strong id="patients">0</strong></div><div class="stat"><small>Appointments</small><strong id="appointments">0</strong></div><div class="stat"><small>Prescriptions</small><strong id="prescriptions">0</strong></div><div class="stat"><small>Pending payments</small><strong id="payments">0</strong></div></div>
-<section class="panel"><h2 style="font-size:25px">Recent appointments</h2><table class="table"><thead><tr><th>Date</th><th>Time</th><th>Patient</th><th>Doctor</th><th>Mode</th><th>Status</th></tr></thead><tbody id="rows"></tbody></table></section>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin Dashboard | Aaradhya's Homoeopathy</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+.admin-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 22px}
+.admin-tab{border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px 14px;cursor:pointer;font:600 13px inherit}
+.admin-tab.active{background:var(--navy);color:#fff}
+.admin-section{display:none}
+.admin-section.active{display:block}
+.admin-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.admin-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.small-note{font-size:12px;color:var(--muted)}
+.table td input,.table td select{padding:8px;border:1px solid var(--line);border-radius:8px;font:inherit;width:100%;min-width:105px}
+.table .actions{white-space:nowrap}
+@media(max-width:700px){.admin-form-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header class="topbar">
+<a class="brand" href="../index.html"><span class="brand-mark">✚</span><div><strong>Aaradhya's Homoeopathy</strong><small>Admin portal</small></div></a>
+<nav><a class="btn btn-outline" href="../index.html">Website</a><button class="btn btn-outline" onclick="logout()">Logout</button></nav>
+</header>
+
+<main class="page">
+<div class="page-title">
+<span class="eyebrow">ADMIN PORTAL</span>
+<h1>Clinic Administration</h1>
+<p style="color:var(--muted)">Manage users, passwords, doctors, patients, appointments, schedules, payments and medicine requests.</p>
+</div>
+
+<div class="dashboard-grid">
+<div class="stat"><small>Patients</small><strong id="statPatients">0</strong></div>
+<div class="stat"><small>Appointments</small><strong id="statAppointments">0</strong></div>
+<div class="stat"><small>Prescriptions</small><strong id="statRx">0</strong></div>
+<div class="stat"><small>Pending payments</small><strong id="statPayments">0</strong></div>
+</div>
+
+<div class="admin-tabs">
+<button class="admin-tab active" data-tab="users">Users & Passwords</button>
+<button class="admin-tab" data-tab="doctors">Doctors</button>
+<button class="admin-tab" data-tab="patients">Patients</button>
+<button class="admin-tab" data-tab="appointments">Appointments</button>
+<button class="admin-tab" data-tab="availability">Schedule</button>
+<button class="admin-tab" data-tab="payments">Payments</button>
+<button class="admin-tab" data-tab="orders">Medicine Orders</button>
+</div>
+
+<section id="tab-users" class="admin-section active">
+<div class="grid-2">
+<section class="panel">
+<h2 style="font-size:24px">Create account</h2>
+<p class="small-note">Admin can create patient, doctor and admin accounts. Passwords are handled by Supabase Auth.</p>
+<div class="form-group"><label>Role</label><select id="newRole" onchange="toggleCreateFields()"><option value="patient">Patient</option><option value="doctor">Doctor</option><option value="admin">Admin</option></select></div>
+<div class="form-group"><label>Full name</label><input id="newName" placeholder="Full name"></div>
+<div id="newPhoneWrap" class="form-group"><label>Mobile number</label><input id="newPhone" inputmode="numeric" placeholder="10-digit mobile number"></div>
+<div id="newDoctorWrap" class="form-group" style="display:none"><label>Doctor</label><select id="newDoctor"><option value="reshma">Dr. Reshma Singh</option><option value="op">Dr. O.P. Singh</option></select></div>
+<div id="newEmailWrap" class="form-group" style="display:none"><label>Admin email</label><input id="newEmail" type="email" placeholder="admin@example.com"></div>
+<div class="form-group"><label>Password</label><input id="newPassword" type="text" minlength="8" placeholder="Minimum 8 characters"></div>
+<button class="btn btn-primary full" onclick="createAccount()">Create Account</button>
+<div id="createMsg" class="notice" style="display:none"></div>
+</section>
+
+<section class="panel">
+<h2 style="font-size:24px">Change password</h2>
+<p class="small-note">Select any existing Auth user and set a new password. The password is never displayed back to the admin.</p>
+<div class="form-group"><label>User</label><select id="passwordUser"></select></div>
+<div class="form-group"><label>New password</label><input id="resetPassword" type="text" minlength="8" placeholder="Minimum 8 characters"></div>
+<button class="btn btn-dark full" onclick="changePassword()">Update Password</button>
+<div id="passwordMsg" class="notice" style="display:none"></div>
+</section>
+</div>
+
+<section class="panel" style="margin-top:22px">
+<div class="admin-actions"><h2 style="font-size:24px;margin-right:auto">All Auth Users</h2><button class="btn btn-outline" onclick="loadUsers()">Refresh</button></div>
+<p class="small-note">Disabling a user blocks authentication. It does not delete clinic records.</p>
+<div class="table-wrap"><table class="table"><thead><tr><th>Role</th><th>Name</th><th>Email</th><th>Mobile</th><th>Created</th><th>Status</th><th>Action</th></tr></thead><tbody id="userRows"></tbody></table></div>
+</section>
+</section>
+
+<section id="tab-doctors" class="admin-section">
+<section class="panel">
+<div class="admin-actions"><h2 style="font-size:24px;margin-right:auto">Doctor Accounts</h2><button class="btn btn-outline" onclick="loadDoctors()">Refresh</button></div>
+<div class="table-wrap"><table class="table"><thead><tr><th>Doctor</th><th>Qualification</th><th>Mobile</th><th>Active</th><th>Auth linked</th><th>Action</th></tr></thead><tbody id="doctorRows"></tbody></table></div>
+</section>
+</section>
+
+<section id="tab-patients" class="admin-section">
+<section class="panel">
+<div class="admin-actions"><h2 style="font-size:24px;margin-right:auto">Patients</h2><button class="btn btn-outline" onclick="loadPatients()">Refresh</button></div>
+<div class="table-wrap"><table class="table"><thead><tr><th>Patient ID</th><th>Name</th><th>Mobile</th><th>Created</th><th>Action</th></tr></thead><tbody id="patientRows"></tbody></table></div>
+</section>
+</section>
+
+<section id="tab-appointments" class="admin-section">
+<section class="panel">
+<div class="admin-actions"><h2 style="font-size:24px;margin-right:auto">Appointments</h2><button class="btn btn-outline" onclick="loadAppointments()">Refresh</button></div>
+<p class="small-note">Admin can change date, time, mode, payment status, status and Google Meet link.</p>
+<div class="table-wrap"><table class="table"><thead><tr><th>Date</th><th>Time</th><th>Patient</th><th>Doctor</th><th>Mode</th><th>Payment</th><th>Status</th><th>Meet link</th><th>Action</th></tr></thead><tbody id="appointmentRows"></tbody></table></div>
+</section>
+</section>
+
+<section id="tab-availability" class="admin-section">
+<div class="grid-2">
+<section class="panel">
+<h2 style="font-size:24px">Add / update schedule</h2>
+<div class="form-group"><label>Doctor</label><select id="avDoctor"><option value="reshma">Dr. Reshma Singh</option><option value="op">Dr. O.P. Singh</option></select></div>
+<div class="form-group"><label>Date</label><input id="avDate" type="date"></div>
+<div class="admin-form-grid"><div class="form-group"><label>Start</label><input id="avStart" type="time" value="17:00"></div><div class="form-group"><label>End</label><input id="avEnd" type="time" value="21:00"></div></div>
+<div class="form-group"><label>Slot duration</label><select id="avDuration"><option value="15">15 minutes</option><option value="10">10 minutes</option></select></div>
+<button class="btn btn-primary full" onclick="saveSchedule()">Save Schedule</button>
+<div id="scheduleMsg" class="notice" style="display:none"></div>
+</section>
+<section class="panel">
+<h2 style="font-size:24px">Current schedules</h2>
+<div class="table-wrap"><table class="table"><thead><tr><th>Doctor</th><th>Date</th><th>Start</th><th>End</th><th>Duration</th><th>Active</th><th>Action</th></tr></thead><tbody id="scheduleRows"></tbody></table></div>
+</section>
+</div>
+</section>
+
+<section id="tab-payments" class="admin-section">
+<section class="panel">
+<div class="admin-actions"><h2 style="font-size:24px;margin-right:auto">Payments</h2><button class="btn btn-outline" onclick="loadPayments()">Refresh</button></div>
+<div class="table-wrap"><table class="table"><thead><tr><th>Date</th><th>Patient</th><th>Amount</th><th>Status</th><th>Provider</th><th>Reference</th><th>Action</th></tr></thead><tbody id="paymentRows"></tbody></table></div>
+</section>
+</section>
+
+<section id="tab-orders" class="admin-section">
+<section class="panel">
+<div class="admin-actions"><h2 style="font-size:24px;margin-right:auto">Medicine Orders</h2><button class="btn btn-outline" onclick="loadOrders()">Refresh</button></div>
+<div class="table-wrap"><table class="table"><thead><tr><th>Date</th><th>Patient</th><th>Items</th><th>Status</th><th>Notes</th><th>Action</th></tr></thead><tbody id="orderRows"></tbody></table></div>
+</section>
+</section>
+
+<div id="globalMsg" class="notice" style="display:none;margin-top:20px"></div>
 </main>
+
 <script src="../js/config.js"></script>
 <script>
+let users=[], doctors=[], patients=[], appointments=[], schedules=[], payments=[], orders=[];
+let currentUserId='';
+
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
-async function init(){
- try{
-  const sb=await getSupabaseClient(),session=await sb.auth.getSession();
-  if(!session.data.session){location.href='admin-login.html';return;}
-  const p=await sb.from('profiles').select('role').eq('id',session.data.session.user.id).single();
-  if(p.error||p.data.role!=='admin'){await sb.auth.signOut();location.href='admin-login.html';return;}
-  const [pat,appt,rx,pay]=await Promise.all([
-   sb.from('patients').select('id',{count:'exact',head:true}),
-   sb.from('appointments').select('id,appointment_date,appointment_time,status,mode,patients(full_name),doctors(full_name)').order('appointment_date',{ascending:false}).order('appointment_time',{ascending:false}).limit(100),
-   sb.from('prescriptions').select('id',{count:'exact',head:true}),
-   sb.from('payments').select('id',{count:'exact',head:true}).eq('status','pending')
-  ]);
-  if(pat.error)throw pat.error;if(appt.error)throw appt.error;if(rx.error)throw rx.error;if(pay.error)throw pay.error;
-  document.getElementById('patients').textContent=pat.count||0;
-  document.getElementById('appointments').textContent=(appt.data||[]).length;
-  document.getElementById('prescriptions').textContent=rx.count||0;
-  document.getElementById('payments').textContent=pay.count||0;
-  document.getElementById('rows').innerHTML=(appt.data||[]).map(a=>'<tr><td>'+esc(a.appointment_date)+'</td><td>'+esc(String(a.appointment_time||'').slice(0,5))+'</td><td>'+esc(a.patients?.full_name)+'</td><td>'+esc(a.doctors?.full_name)+'</td><td>'+esc(a.mode)+'</td><td>'+esc(a.status)+'</td></tr>').join('')||'<tr><td colspan="6">No appointments yet.</td></tr>';
- }catch(e){document.getElementById('rows').innerHTML='<tr><td colspan="6">'+esc(e.message||'Unable to load dashboard.')+'</td></tr>';}
+function cleanPhone(v){const d=String(v||'').replace(/\D/g,'');if(d.length===10)return '+91'+d;if(d.length===12&&d.startsWith('91'))return '+'+d;return String(v||'').trim();}
+function msg(id,text){const el=document.getElementById(id);el.style.display='block';el.textContent=text;}
+
+document.querySelectorAll('.admin-tab').forEach(btn=>btn.addEventListener('click',()=>{
+ document.querySelectorAll('.admin-tab').forEach(x=>x.classList.remove('active'));
+ document.querySelectorAll('.admin-section').forEach(x=>x.classList.remove('active'));
+ btn.classList.add('active');document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+}));
+
+function toggleCreateFields(){
+ const role=document.getElementById('newRole').value;
+ document.getElementById('newPhoneWrap').style.display=role==='admin'?'none':'block';
+ document.getElementById('newEmailWrap').style.display=role==='admin'?'block':'none';
+ document.getElementById('newDoctorWrap').style.display=role==='doctor'?'block':'none';
+}
+async function ensureAdmin(){
+ const sb=await getSupabaseClient();
+ const session=await sb.auth.getSession();
+ if(!session.data.session){location.href='admin-login.html';return null;}
+ currentUserId=session.data.session.user.id;
+ const p=await sb.from('profiles').select('role').eq('id',currentUserId).single();
+ if(p.error||p.data.role!=='admin'){await sb.auth.signOut();location.href='admin-login.html';return null;}
+ return sb;
+}
+
+async function loadUsers(){
+ const r=await adminApi('listUsers');
+ if(!r.ok){msg('globalMsg',r.error);return;}
+ users=r.users||[];
+ const sel=document.getElementById('passwordUser');
+ sel.innerHTML=users.map(u=>'<option value="'+esc(u.id)+'">'+esc(u.role)+' · '+esc(u.full_name||u.phone||u.email||u.id)+'</option>').join('');
+ document.getElementById('userRows').innerHTML=users.map(u=>{
+  const status=u.active?'Active':'Disabled';
+  return '<tr><td>'+esc(u.role)+'</td><td>'+esc(u.full_name)+'</td><td>'+esc(u.email)+'</td><td>'+esc(u.phone)+'</td><td>'+esc((u.created_at||'').slice(0,10))+'</td><td>'+status+'</td><td class="actions"><button class="btn btn-outline" onclick="toggleUser(\''+u.id+'\','+(!u.active)+')">'+(u.active?'Disable':'Enable')+'</button></td></tr>';
+ }).join('')||'<tr><td colspan="7">No Auth users.</td></tr>';
+}
+async function changePassword(){
+ const userId=document.getElementById('passwordUser').value,password=document.getElementById('resetPassword').value;
+ if(!userId||password.length<8){msg('passwordMsg','Select a user and enter a password of at least 8 characters.');return;}
+ const r=await adminApi('updatePassword',{userId,password});
+ if(!r.ok){msg('passwordMsg',r.error);return;}
+ document.getElementById('resetPassword').value='';msg('passwordMsg','Password updated successfully.');
+}
+async function toggleUser(userId,active){
+ const r=await adminApi('setUserActive',{userId,active});
+ if(!r.ok){msg('globalMsg',r.error);return;}
+ await loadUsers();
+}
+async function createAccount(){
+ const role=document.getElementById('newRole').value,name=document.getElementById('newName').value.trim(),password=document.getElementById('newPassword').value;
+ const phone=cleanPhone(document.getElementById('newPhone').value),email=document.getElementById('newEmail').value.trim();
+ if(!name||password.length<8){msg('createMsg','Enter a name and a password of at least 8 characters.');return;}
+ if(role!=='admin'&&phone.replace(/\D/g,'').length<10){msg('createMsg','Enter a valid 10-digit mobile number.');return;}
+ if(role==='admin'&&!email){msg('createMsg','Enter an admin email.');return;}
+ const r=await adminApi('createUser',{role,fullName:name,phone,email,doctorCode:document.getElementById('newDoctor').value,password});
+ if(!r.ok){msg('createMsg',r.error);return;}
+ msg('createMsg','Account created successfully.');
+ document.getElementById('newName').value='';document.getElementById('newPhone').value='';document.getElementById('newEmail').value='';document.getElementById('newPassword').value='';
+ await loadUsers();await refreshStats();
+}
+
+async function loadDoctors(){
+ const r=await adminApi('listDoctors');if(!r.ok){msg('globalMsg',r.error);return;}
+ doctors=r.doctors||[];
+ document.getElementById('doctorRows').innerHTML=doctors.map(d=>'<tr><td>'+esc(d.full_name)+'</td><td>'+esc(d.qualification)+'</td><td><input id="docphone-'+d.id+'" value="'+esc(d.phone)+'" inputmode="numeric"></td><td><select id="docactive-'+d.id+'"><option value="true" '+(d.active?'selected':'')+'>Active</option><option value="false" '+(!d.active?'selected':'')+'>Disabled</option></select></td><td>'+esc(d.user_id?'Linked':'Not linked')+'</td><td class="actions"><button class="btn btn-primary" onclick="saveDoctor(\''+d.id+'\')">Save</button></td></tr>').join('')||'<tr><td colspan="6">No doctors.</td></tr>';
+}
+async function saveDoctor(id){
+ const phone=document.getElementById('docphone-'+id).value.trim(),active=document.getElementById('docactive-'+id).value==='true';
+ const r=await adminApi('updateDoctor',{doctorId:id,phone,active});if(!r.ok){msg('globalMsg',r.error);return;}await loadDoctors();
+}
+async function loadPatients(){
+ const sb=await ensureAdmin();if(!sb)return;
+ const r=await sb.from('patients').select('id,patient_code,full_name,phone,created_at,user_id').order('created_at',{ascending:false});
+ if(r.error){msg('globalMsg',r.error.message);return;}patients=r.data||[];
+ document.getElementById('patientRows').innerHTML=patients.map(p=>'<tr><td>'+esc(p.patient_code)+'</td><td><input id="pname-'+p.id+'" value="'+esc(p.full_name)+'"></td><td><input id="pphone-'+p.id+'" value="'+esc(p.phone)+'" inputmode="numeric"></td><td>'+esc((p.created_at||'').slice(0,10))+'</td><td><button class="btn btn-primary" onclick="savePatient(\''+p.id+'\')">Save</button></td></tr>').join('')||'<tr><td colspan="5">No patients.</td></tr>';
+}
+async function savePatient(id){
+ const fullName=document.getElementById('pname-'+id).value.trim(),phone=cleanPhone(document.getElementById('pphone-'+id).value);
+ if(!fullName||phone.replace(/\D/g,'').length<10)return msg('globalMsg','Enter a valid patient name and 10-digit mobile.');
+ const r=await adminApi('updatePatient',{patientId:id,fullName,phone});if(!r.ok){msg('globalMsg',r.error);return;}await loadPatients();
+}
+async function loadAppointments(){
+ const sb=await ensureAdmin();if(!sb)return;
+ const r=await sb.from('appointments').select('id,appointment_date,appointment_time,mode,payment_status,status,meet_link,patient_id,doctor_id,patients(full_name,phone),doctors(full_name,doctor_code)').order('appointment_date',{ascending:false}).order('appointment_time',{ascending:false});
+ if(r.error){msg('globalMsg',r.error.message);return;}appointments=r.data||[];
+ document.getElementById('appointmentRows').innerHTML=appointments.map(a=>{
+  return '<tr><td><input id="ad-'+a.id+'" type="date" value="'+esc(a.appointment_date)+'"></td><td><input id="at-'+a.id+'" type="time" value="'+esc(String(a.appointment_time||'').slice(0,5))+'"></td><td>'+esc(a.patients?.full_name||'')+'</td><td>'+esc(a.doctors?.full_name||'')+'</td><td><select id="am-'+a.id+'"><option value="offline" '+(a.mode==='offline'?'selected':'')+'>Offline</option><option value="online" '+(a.mode==='online'?'selected':'')+'>Online</option></select></td><td><select id="ap-'+a.id+'"><option value="pending" '+(a.payment_status==='pending'?'selected':'')+'>Pending</option><option value="paid" '+(a.payment_status==='paid'?'selected':'')+'>Paid</option><option value="failed" '+(a.payment_status==='failed'?'selected':'')+'>Failed</option><option value="refunded" '+(a.payment_status==='refunded'?'selected':'')+'>Refunded</option><option value="not_required" '+(a.payment_status==='not_required'?'selected':'')+'>Not required</option></select></td><td><select id="as-'+a.id+'"><option '+(a.status==='Confirmed'?'selected':'')+'>Confirmed</option><option '+(a.status==='Pending'?'selected':'')+'>Pending</option><option '+(a.status==='Completed'?'selected':'')+'>Completed</option><option '+(a.status==='Cancelled'?'selected':'')+'>Cancelled</option><option '+(a.status==='No Show'?'selected':'')+'>No Show</option></select></td><td><input id="alink-'+a.id+'" value="'+esc(a.meet_link||'')" placeholder="https://meet.google.com/..."></td><td><button class="btn btn-primary" onclick="saveAppointment(\''+a.id+'\')">Save</button></td></tr>';
+ }).join('')||'<tr><td colspan="9">No appointments.</td></tr>';
+}
+async function saveAppointment(id){
+ const sb=await ensureAdmin();if(!sb)return;
+ const patch={appointment_date:document.getElementById('ad-'+id).value,appointment_time:document.getElementById('at-'+id).value,mode:document.getElementById('am-'+id).value,payment_status:document.getElementById('ap-'+id).value,status:document.getElementById('as-'+id).value,meet_link:document.getElementById('alink-'+id).value.trim()||null,updated_at:new Date().toISOString()};
+ const r=await sb.from('appointments').update(patch).eq('id',id);if(r.error){msg('globalMsg',r.error.message);return;}await loadAppointments();await refreshStats();
+}
+async function loadSchedules(){
+ const sb=await ensureAdmin();if(!sb)return;
+ const r=await sb.from('availability').select('id,doctor_id,availability_date,start_time,end_time,slot_duration,active,doctors(full_name)').order('availability_date',{ascending:false});
+ if(r.error){msg('globalMsg',r.error.message);return;}schedules=r.data||[];
+ document.getElementById('scheduleRows').innerHTML=schedules.map(s=>'<tr><td>'+esc(s.doctors?.full_name||'')+'</td><td>'+esc(s.availability_date)+'</td><td>'+esc(String(s.start_time||'').slice(0,5))+'</td><td>'+esc(String(s.end_time||'').slice(0,5))+'</td><td>'+esc(s.slot_duration+' min')+'</td><td>'+esc(s.active?'Active':'Disabled')+'</td><td><button class="btn btn-outline" onclick="toggleSchedule(\''+s.id+'\','+(!s.active)+')">'+(s.active?'Disable':'Enable')+'</button></td></tr>').join('')||'<tr><td colspan="7">No schedules.</td></tr>';
+}
+async function saveSchedule(){
+ const sb=await ensureAdmin();if(!sb)return;
+ const code=document.getElementById('avDoctor').value,date=document.getElementById('avDate').value,start=document.getElementById('avStart').value,end=document.getElementById('avEnd').value,duration=Number(document.getElementById('avDuration').value);
+ const d=await sb.from('doctors').select('id,doctor_code').eq('doctor_code',code).single();if(d.error){msg('scheduleMsg',d.error.message);return;}
+ const r=await sb.from('availability').upsert({doctor_id:d.data.id,availability_date:date,start_time:start,end_time:end,slot_duration:duration,active:true},{onConflict:'doctor_id,availability_date,start_time,end_time'}).select().single();
+ if(r.error){msg('scheduleMsg',r.error.message);return;}msg('scheduleMsg','Schedule saved.');await loadSchedules();
+}
+async function toggleSchedule(id,active){
+ const sb=await ensureAdmin();if(!sb)return;const r=await sb.from('availability').update({active}).eq('id',id);if(r.error){msg('globalMsg',r.error.message);return;}await loadSchedules();
+}
+async function loadPayments(){
+ const sb=await ensureAdmin();if(!sb)return;
+ const r=await sb.from('payments').select('id,created_at,amount,status,provider,provider_reference,patients(full_name)').order('created_at',{ascending:false});
+ if(r.error){msg('globalMsg',r.error.message);return;}payments=r.data||[];
+ document.getElementById('paymentRows').innerHTML=payments.map(p=>'<tr><td>'+esc((p.created_at||'').slice(0,10))+'</td><td>'+esc(p.patients?.full_name||'')+'</td><td>'+esc(p.amount??'')+'</td><td><select id="pay-'+p.id+'"><option value="pending" '+(p.status==='pending'?'selected':'')+'>Pending</option><option value="paid" '+(p.status==='paid'?'selected':'')+'>Paid</option><option value="failed" '+(p.status==='failed'?'selected':'')+'>Failed</option><option value="refunded" '+(p.status==='refunded'?'selected':'')+'>Refunded</option></select></td><td>'+esc(p.provider||'')+'</td><td>'+esc(p.provider_reference||'')+'</td><td><button class="btn btn-primary" onclick="savePayment(\''+p.id+'\')">Save</button></td></tr>').join('')||'<tr><td colspan="7">No payments.</td></tr>';
+}
+async function savePayment(id){const sb=await ensureAdmin();if(!sb)return;const r=await sb.from('payments').update({status:document.getElementById('pay-'+id).value}).eq('id',id);if(r.error){msg('globalMsg',r.error.message);return;}await loadPayments();await refreshStats();}
+async function loadOrders(){
+ const sb=await ensureAdmin();if(!sb)return;
+ const r=await sb.from('medicine_orders').select('id,created_at,items,status,notes,patients(full_name)').order('created_at',{ascending:false});
+ if(r.error){msg('globalMsg',r.error.message);return;}orders=r.data||[];
+ document.getElementById('orderRows').innerHTML=orders.map(o=>'<tr><td>'+esc((o.created_at||'').slice(0,10))+'</td><td>'+esc(o.patients?.full_name||'')+'</td><td>'+esc(JSON.stringify(o.items||[]))+'</td><td><select id="ord-'+o.id+'"><option value="requested" '+(o.status==='requested'?'selected':'')+'>Requested</option><option value="confirmed" '+(o.status==='confirmed'?'selected':'')+'>Confirmed</option><option value="processing" '+(o.status==='processing'?'selected':'')+'>Processing</option><option value="shipped" '+(o.status==='shipped'?'selected':'')+'>Shipped</option><option value="completed" '+(o.status==='completed'?'selected':'')+'>Completed</option><option value="cancelled" '+(o.status==='cancelled'?'selected':'')+'>Cancelled</option></select></td><td>'+esc(o.notes||'')+'</td><td><button class="btn btn-primary" onclick="saveOrder(\''+o.id+'\')">Save</button></td></tr>').join('')||'<tr><td colspan="6">No medicine orders.</td></tr>';
+}
+async function saveOrder(id){const sb=await ensureAdmin();if(!sb)return;const r=await sb.from('medicine_orders').update({status:document.getElementById('ord-'+id).value}).eq('id',id);if(r.error){msg('globalMsg',r.error.message);return;}await loadOrders();}
+async function refreshStats(){
+ const sb=await ensureAdmin();if(!sb)return;
+ const [p,a,rx,pay]=await Promise.all([
+  sb.from('patients').select('id',{count:'exact',head:true}),
+  sb.from('appointments').select('id',{count:'exact',head:true}),
+  sb.from('prescriptions').select('id',{count:'exact',head:true}),
+  sb.from('payments').select('id',{count:'exact',head:true}).eq('status','pending')
+ ]);
+ document.getElementById('statPatients').textContent=p.count||0;
+ document.getElementById('statAppointments').textContent=a.count||0;
+ document.getElementById('statRx').textContent=rx.count||0;
+ document.getElementById('statPayments').textContent=pay.count||0;
 }
 async function logout(){const sb=await getSupabaseClient();await sb.auth.signOut();location.href='admin-login.html';}
-init();
-</script></body></html>
+
+document.getElementById('avDate').value=new Date().toISOString().slice(0,10);
+(async()=>{
+ const sb=await ensureAdmin();if(!sb)return;
+ toggleCreateFields();
+ await Promise.all([refreshStats(),loadUsers(),loadDoctors(),loadPatients(),loadAppointments(),loadSchedules(),loadPayments(),loadOrders()]);
+})();
+</script>
+</body></html>

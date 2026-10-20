@@ -15,6 +15,7 @@ create table if not exists public.doctors (
   id uuid primary key,
   doctor_code text not null unique check (doctor_code in ('reshma','op')),
   user_id uuid unique references auth.users(id) on delete set null,
+  phone text,
   full_name text not null,
   qualification text not null default 'MD (Hom) Kolkata',
   active boolean not null default true,
@@ -50,6 +51,7 @@ create table if not exists public.availability (
 );
 
 create index if not exists availability_date_idx on public.availability(availability_date);
+create unique index if not exists doctors_phone_idx on public.doctors(phone) where phone is not null;
 
 create table if not exists public.appointments (
   id uuid primary key default gen_random_uuid(),
@@ -466,3 +468,121 @@ join public.doctors d on d.id = a.doctor_id;
 
 grant select on public.doctors to anon, authenticated;
 grant select on public.availability to anon, authenticated;
+
+
+-- Authentication helpers.
+-- Patient/doctor accounts are linked after successful Supabase Phone OTP login.
+create or replace function public.normalize_phone(p_phone text)
+returns text
+language sql
+immutable
+as $$
+  select regexp_replace(coalesce(p_phone,''), '\\D', '', 'g');
+$$;
+
+create or replace function public.claim_patient_account()
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_phone text := public.normalize_phone(coalesce((select phone from auth.users where id = auth.uid()), ''));
+  v_patient public.patients%rowtype;
+begin
+  if auth.uid() is null or v_phone = '' then
+    raise exception 'Authenticated phone number is required';
+  end if;
+
+  select * into v_patient
+  from public.patients
+  where public.normalize_phone(phone) = v_phone
+  order by (user_id = auth.uid()) desc, created_at desc
+  limit 1;
+
+  if not found then
+    insert into public.patients(user_id, full_name, phone)
+    values(auth.uid(), coalesce((select raw_user_meta_data->>'full_name' from auth.users where id=auth.uid()), 'Patient'), v_phone)
+    returning * into v_patient;
+  else
+    update public.patients
+    set user_id = auth.uid(), phone = v_phone, updated_at = now()
+    where id = v_patient.id
+    returning * into v_patient;
+  end if;
+
+  insert into public.profiles(id, role, full_name, phone)
+  values(auth.uid(), 'patient', v_patient.full_name, v_phone)
+  on conflict (id) do update
+  set role='patient', full_name=excluded.full_name, phone=excluded.phone;
+
+  return jsonb_build_object(
+    'patientId', v_patient.id,
+    'patientCode', v_patient.patient_code,
+    'fullName', v_patient.full_name,
+    'phone', v_patient.phone
+  );
+end;
+$$;
+
+create or replace function public.claim_doctor_account(p_doctor_code text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_phone text := public.normalize_phone(coalesce((select phone from auth.users where id = auth.uid()), ''));
+  v_doctor public.doctors%rowtype;
+begin
+  if auth.uid() is null or v_phone = '' then
+    raise exception 'Authenticated phone number is required';
+  end if;
+
+  select * into v_doctor
+  from public.doctors
+  where doctor_code = lower(trim(p_doctor_code)) and active = true;
+
+  if not found then
+    raise exception 'Doctor account not found';
+  end if;
+
+  if v_doctor.phone is null or public.normalize_phone(v_doctor.phone) <> v_phone then
+    raise exception 'This phone number is not registered for the selected doctor';
+  end if;
+
+  update public.doctors
+  set user_id = auth.uid()
+  where id = v_doctor.id
+  returning * into v_doctor;
+
+  insert into public.profiles(id, role, full_name, phone)
+  values(auth.uid(), 'doctor', v_doctor.full_name, v_phone)
+  on conflict (id) do update
+  set role='doctor', full_name=excluded.full_name, phone=excluded.phone;
+
+  return jsonb_build_object(
+    'doctorId', v_doctor.id,
+    'doctorCode', v_doctor.doctor_code,
+    'fullName', v_doctor.full_name,
+    'phone', v_phone
+  );
+end;
+$$;
+
+revoke all on function public.claim_patient_account() from public;
+grant execute on function public.claim_patient_account() to authenticated;
+
+revoke all on function public.claim_doctor_account(text) from public;
+grant execute on function public.claim_doctor_account(text) to authenticated;
+
+revoke all on function public.normalize_phone(text) from public;
+grant execute on function public.normalize_phone(text) to anon, authenticated;
+
+-- Extra policy so doctors can maintain only their own profile/doctor linkage.
+drop policy if exists "doctors own select" on public.doctors;
+create policy "doctors own select" on public.doctors
+for select to authenticated
+using (active = true and (user_id = auth.uid() or public.current_profile_role() in ('admin','doctor')));
+
+-- Existing public read policy remains useful for anonymous booking pages.

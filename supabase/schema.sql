@@ -193,6 +193,7 @@ alter table public.patient_documents enable row level security;
 drop policy if exists "profiles own select" on public.profiles;
 drop policy if exists "profiles own update" on public.profiles;
 drop policy if exists "doctors public read active" on public.doctors;
+drop policy if exists "doctors public read active" on public.doctors;
 drop policy if exists "patients own select" on public.patients;
 drop policy if exists "patients own update" on public.patients;
 drop policy if exists "patients admin select" on public.patients;
@@ -224,10 +225,6 @@ create policy "profiles own update" on public.profiles
 for update to authenticated
 using (id = auth.uid())
 with check (id = auth.uid());
-
-create policy "doctors public read active" on public.doctors
-for select to anon, authenticated
-using (active = true);
 
 create policy "patients own select" on public.patients
 for select to authenticated
@@ -467,7 +464,7 @@ select
 from public.appointments a
 join public.doctors d on d.id = a.doctor_id;
 
-grant select on public.doctors to anon, authenticated;
+grant select on public.doctors to authenticated;
 grant select on public.availability to anon, authenticated;
 
 

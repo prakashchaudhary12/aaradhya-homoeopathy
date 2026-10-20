@@ -193,6 +193,7 @@ drop policy if exists "doctors public read active" on public.doctors;
 drop policy if exists "patients own select" on public.patients;
 drop policy if exists "patients own update" on public.patients;
 drop policy if exists "patients admin select" on public.patients;
+drop policy if exists "patients doctor select" on public.patients;
 drop policy if exists "availability doctor own" on public.availability;
 drop policy if exists "availability public read" on public.availability;
 drop policy if exists "appointments patient read" on public.appointments;
@@ -238,6 +239,14 @@ create policy "patients admin select" on public.patients
 for select to authenticated
 using (public.current_profile_role() = 'admin');
 
+create policy "patients doctor select" on public.patients
+for select to authenticated
+using (exists (
+  select 1 from public.appointments a
+  where a.patient_id = patients.id
+    and a.doctor_id = public.current_doctor_id()
+));
+
 create policy "availability public read" on public.availability
 for select to anon, authenticated
 using (active = true);
@@ -275,7 +284,15 @@ using (doctor_id = public.current_doctor_id());
 
 create policy "prescriptions doctor insert" on public.prescriptions
 for insert to authenticated
-with check (doctor_id = public.current_doctor_id());
+with check (
+  doctor_id = public.current_doctor_id()
+  and exists (
+    select 1 from public.appointments a
+    where a.id = appointment_id
+      and a.doctor_id = public.current_doctor_id()
+      and a.patient_id = prescriptions.patient_id
+  )
+);
 
 create policy "prescription meds patient read" on public.prescription_medicines
 for select to authenticated
@@ -357,7 +374,13 @@ declare
   v_mode text := p_mode;
   v_time time := p_appointment_time::time;
   v_dow integer := extract(dow from p_appointment_date);
+  v_now_ist timestamptz := timezone('Asia/Kolkata', now());
 begin
+  if p_appointment_date < (v_now_ist::date)
+     or (p_appointment_date = v_now_ist::date and v_time < v_now_ist::time) then
+    raise exception 'Please choose a future appointment slot';
+  end if;
+
   if nullif(trim(p_full_name),'') is null then
     raise exception 'Patient name is required';
   end if;

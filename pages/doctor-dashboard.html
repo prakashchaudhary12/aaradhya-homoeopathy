@@ -2,36 +2,36 @@
 const doctor=new URLSearchParams(location.search).get('doctor')==='op'?'op':'reshma';
 const doctorName=doctor==='op'?'Dr. O.P. Singh':'Dr. Reshma Singh';
 document.getElementById('doctorHeader').textContent=doctorName;document.getElementById('welcome').textContent='Welcome, '+doctorName;document.getElementById('doctorNameInline').textContent=doctorName;
-const now=new Date();const today=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');document.getElementById('date').value=today;
+const now=new Date();const today=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');document.getElementById('date').value=today;document.getElementById('rxDate').value=today;
+let currentAppointments=[];
 function localFallback(){return JSON.parse(localStorage.getItem('appointments')||'[]').filter(a=>a&&a.doctor===doctor)}
-async function loadAppointments(){
- try{
-   const result=await apiGet('appointments',{doctor});
-   if(result.configured&&result.ok)return result.data||[];
- }catch(e){}
- return localFallback();
-}
+async function loadAppointments(){try{const r=await apiGet('appointments',{doctor});if(r.configured&&r.ok)return r.data||[]}catch(e){}return localFallback()}
+function field(a,name,fallback=''){return a[name]!==undefined?a[name]:a[fallback]||''}
 async function render(){
- const apps=await loadAppointments();
- const todayApps=apps.filter(a=>String(a.Date||a.date)===today);
- const upcoming=apps.filter(a=>String(a.Date||a.date)>=today&&String(a.Status||a.status)!=='Completed');
- const pending=apps.filter(a=>String(a['Payment Preference']||a.payment||'').toLowerCase().includes('after')||String(a['Payment Status']||'').toLowerCase().includes('pending')||String(a.status||'').toLowerCase().includes('pending'));
- document.getElementById('todayCount').textContent=todayApps.length;
- document.getElementById('completedCount').textContent=apps.filter(a=>String(a.Status||a.status)==='Completed').length;
- document.getElementById('upcomingCount').textContent=upcoming.length;
- document.getElementById('pendingCount').textContent=pending.length;
+ currentAppointments=await loadAppointments();
+ const todayApps=currentAppointments.filter(a=>String(field(a,'Date','date'))===today);
+ const upcoming=currentAppointments.filter(a=>String(field(a,'Date','date'))>=today&&String(field(a,'Status','status'))!=='Completed');
+ const pending=currentAppointments.filter(a=>String(field(a,'Payment Preference','payment')||'').toLowerCase().includes('after')||String(field(a,'Payment Status')||'').toLowerCase().includes('pending')||String(field(a,'Status','status')||'').toLowerCase().includes('pending'));
+ document.getElementById('todayCount').textContent=todayApps.length;document.getElementById('completedCount').textContent=currentAppointments.filter(a=>String(field(a,'Status','status'))==='Completed').length;document.getElementById('upcomingCount').textContent=upcoming.length;document.getElementById('pendingCount').textContent=pending.length;
  document.getElementById('scheduleNote').textContent='Showing appointments for '+doctorName+' today.';
- document.getElementById('scheduleRows').innerHTML=todayApps.length?todayApps.map(a=>'<tr><td>'+(a.Time||a.time)+'</td><td>'+(a['Patient Name']||a.name)+'</td><td><span class="badge green">'+(a.Status||a.status||'Confirmed')+'</span></td></tr>').join(''):'<tr><td colspan="3">No appointments for today.</td></tr>';
- document.getElementById('appointmentRows').innerHTML=apps.length?apps.map(a=>'<tr><td>'+(a.Date||a.date)+'</td><td>'+(a.Time||a.time)+'</td><td>'+(a['Patient Name']||a.name)+'</td><td>'+((a.Reason||a.reason||'').replace(/</g,'&lt;'))+'</td><td>'+(a.Mode||a.mode||'')+'</td><td>'+(a['Payment Status']||a.payment||'Pending')+'</td><td><button class="btn btn-dark" onclick="window.open(\\'https://meet.google.com/\\',\\'_blank\\')">Join Meet</button> <button class="btn btn-outline" onclick="alert(\\'Prescription editor for '+doctorName+'\\')">Prescription</button></td></tr>').join(''):'<tr><td colspan="7">No appointments booked for this doctor yet.</td></tr>';
+ document.getElementById('scheduleRows').innerHTML=todayApps.length?todayApps.map(a=>'<tr><td>'+field(a,'Time','time')+'</td><td>'+field(a,'Patient Name','name')+'</td><td><span class="badge green">'+field(a,'Status','status')+'</span></td></tr>').join(''):'<tr><td colspan="3">No appointments for today.</td></tr>';
+ document.getElementById('appointmentRows').innerHTML=currentAppointments.length?currentAppointments.map((a,i)=>'<tr><td>'+field(a,'Date','date')+'</td><td>'+field(a,'Time','time')+'</td><td>'+field(a,'Patient Name','name')+'</td><td>'+String(field(a,'Reason','reason')).replace(/</g,'&lt;')+'</td><td>'+field(a,'Mode','mode')+'</td><td>'+field(a,'Payment Status','payment')+'</td><td><button class="btn btn-dark" onclick="joinMeet()">Meet</button> <button class="btn btn-outline" onclick="selectAppointment('+i+')">Prescription</button></td></tr>').join(''):'<tr><td colspan="7">No appointments booked for this doctor yet.</td></tr>';
 }
-async function saveAvailability(){
- const data={doctor,date:document.getElementById('date').value,startTime:document.getElementById('start').value,endTime:document.getElementById('end').value,slotDuration:parseInt(document.getElementById('duration').value)};
+function joinMeet(){window.open('https://meet.google.com/','_blank')}
+function selectAppointment(index){
+ const a=currentAppointments[index];document.getElementById('rxAppointmentId').value=field(a,'Appointment ID','id');document.getElementById('rxPatientId').value=field(a,'Patient ID','patientId');document.getElementById('rxPatientName').value=field(a,'Patient Name','name');document.getElementById('rxDate').value=field(a,'Date','date')||today;document.getElementById('rxComplaints').value=field(a,'Reason','reason');document.getElementById('rxDiagnosis').value='';document.getElementById('rxAdvice').value='';document.getElementById('rxMedicines').value='';document.getElementById('prescriptionPanel').scrollIntoView({behavior:'smooth'});
+}
+async function createPrescription(){
+ const appointmentId=document.getElementById('rxAppointmentId').value,patientId=document.getElementById('rxPatientId').value,patientName=document.getElementById('rxPatientName').value.trim();
+ if(!appointmentId||!patientId||!patientName)return alert('Select an appointment with a patient first.');
+ const medicines=document.getElementById('rxMedicines').value.split('\n').map(x=>x.trim()).filter(Boolean).map(line=>{const p=line.split('|').map(x=>x.trim());return{name:p[0]||'',dose:p[1]||'',frequency:p[2]||''}});
  try{
-   const result=await apiPost('setAvailability',data);
-   if(result.configured&&result.ok){document.getElementById('availabilityMsg').style.display='block';document.getElementById('availabilityMsg').textContent='✓ Availability saved to Google Sheets for '+doctorName+'.';return;}
- }catch(e){}
- document.getElementById('availabilityMsg').style.display='block';document.getElementById('availabilityMsg').textContent='✓ Availability saved locally for this demo.';
+  const result=await apiPost('createPrescription',{appointmentId,patientId,patientName,doctor,date:document.getElementById('rxDate').value,complaints:document.getElementById('rxComplaints').value,diagnosis:document.getElementById('rxDiagnosis').value,advice:document.getElementById('rxAdvice').value,medicines});
+  const m=document.getElementById('rxMsg');m.style.display='block';
+  if(result.configured&&result.ok){m.innerHTML='✓ Prescription created. <a href="'+result.pdfUrl+'" target="_blank">Open PDF</a> · <a href="'+result.documentUrl+'" target="_blank">Open Google Doc</a>';}
+  else m.textContent='The Google backend is not connected yet. Add the Apps Script /exec URL in js/config.js.';
+ }catch(e){alert('Unable to create prescription.')}
 }
-render();
-setInterval(render,10000);
+async function saveAvailability(){const data={doctor,date:document.getElementById('date').value,startTime:document.getElementById('start').value,endTime:document.getElementById('end').value,slotDuration:parseInt(document.getElementById('duration').value)};try{const r=await apiPost('setAvailability',data);if(r.configured&&r.ok){document.getElementById('availabilityMsg').style.display='block';document.getElementById('availabilityMsg').textContent='✓ Availability saved to Google Sheets for '+doctorName+'.';return;}}catch(e){}document.getElementById('availabilityMsg').style.display='block';document.getElementById('availabilityMsg').textContent='✓ Availability saved locally for this demo.'}
+render();setInterval(render,10000);
 </script></body></html>

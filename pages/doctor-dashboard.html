@@ -1,20 +1,37 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Doctor Dashboard | Aaradhya's Homoeopathy</title><link rel="stylesheet" href="../css/style.css"></head><body><header class="topbar"><a class="brand" href="../index.html"><span class="brand-mark">✚</span><div><strong>Aaradhya's Homoeopathy</strong><small>Doctor portal</small></div></a><nav><span id="doctorHeader" style="font-weight:600"></span><a class="btn btn-outline" href="doctor-login.html">Switch doctor</a><a class="btn btn-outline" href="../index.html">Logout</a></nav></header><main class="page"><div class="page-title"><span class="eyebrow">DOCTOR PORTAL</span><h1 id="welcome">Doctor Dashboard</h1><p style="color:var(--muted)">You can see and manage <b>only your own appointments</b>.</p></div><div class="dashboard-grid"><div class="stat"><small>Today's appointments</small><strong id="todayCount">0</strong></div><div class="stat"><small>Completed</small><strong id="completedCount">0</strong></div><div class="stat"><small>Upcoming</small><strong id="upcomingCount">0</strong></div><div class="stat"><small>Pending payments</small><strong id="pendingCount">0</strong></div></div><div class="grid-2"><section class="panel"><h2 style="font-size:25px">Set your availability</h2><div class="form-group"><label>Date</label><input id="date" type="date"></div><div class="grid-2"><div class="form-group"><label>Start</label><input id="start" type="time" value="17:00"></div><div class="form-group"><label>End</label><input id="end" type="time" value="21:00"></div></div><div class="form-group"><label>Slot duration</label><select id="duration"><option>15 minutes</option><option>10 minutes</option></select></div><button class="btn btn-primary full" onclick="saveAvailability()">Publish my availability</button><div id="availabilityMsg" class="notice" style="display:none"></div></section><section class="panel"><h2 style="font-size:25px">My schedule</h2><p id="scheduleNote" style="color:var(--muted);font-size:13px"></p><table class="table"><thead><tr><th>Time</th><th>Patient</th><th>Status</th></tr></thead><tbody id="scheduleRows"></tbody></table></section></div><section class="panel" style="margin-top:22px"><h2 style="font-size:25px">My appointments</h2><p style="color:var(--muted);font-size:13px">Appointments booked with <b id="doctorNameInline"></b> are shown below.</p><table class="table"><thead><tr><th>Date</th><th>Time</th><th>Patient</th><th>Reason</th><th>Mode</th><th>Payment</th><th>Action</th></tr></thead><tbody id="appointmentRows"></tbody></table></section></main><script>
 const doctor=new URLSearchParams(location.search).get('doctor')==='op'?'op':'reshma';
 const doctorName=doctor==='op'?'Dr. O.P. Singh':'Dr. Reshma Singh';
-document.getElementById('doctorHeader').textContent=doctorName;
-document.getElementById('welcome').textContent='Welcome, '+doctorName;
-document.getElementById('doctorNameInline').textContent=doctorName;
+document.getElementById('doctorHeader').textContent=doctorName;document.getElementById('welcome').textContent='Welcome, '+doctorName;document.getElementById('doctorNameInline').textContent=doctorName;
 const now=new Date();const today=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');document.getElementById('date').value=today;
-function getAppointments(){return JSON.parse(localStorage.getItem('appointments')||'[]').filter(a=>a&&a.doctor===doctor)}
-function render(){
- const apps=getAppointments(),todayApps=apps.filter(a=>a.date===today),upcoming=apps.filter(a=>a.date>=today&&a.status!=='Completed'),pending=apps.filter(a=>String(a.payment||'').toLowerCase().includes('after')||String(a.status||'').toLowerCase().includes('pending'));
- document.getElementById('todayCount').textContent=todayApps.length;document.getElementById('completedCount').textContent=apps.filter(a=>a.status==='Completed').length;document.getElementById('upcomingCount').textContent=upcoming.length;document.getElementById('pendingCount').textContent=pending.length;
- document.getElementById('scheduleNote').textContent='Showing '+todayApps.length+' appointment(s) for '+doctorName+' today.';
- document.getElementById('scheduleRows').innerHTML=todayApps.length?todayApps.map(a=>'<tr><td>'+a.time+'</td><td>'+a.name+'</td><td><span class="badge '+(a.status==='Pending'?'yellow':'green')+'">'+a.status+'</span></td></tr>').join(''):'<tr><td colspan="3">No appointments for today.</td></tr>';
- document.getElementById('appointmentRows').innerHTML=apps.length?apps.map(a=>'<tr><td>'+a.date+'</td><td>'+a.time+'</td><td>'+a.name+'</td><td>'+((a.reason||'').replace(/</g,'&lt;'))+'</td><td>'+a.mode+'</td><td>'+a.payment+'</td><td><button class="btn btn-dark" onclick="joinMeet()">Join Meet</button> <button class="btn btn-outline" onclick="addPrescription()">Prescription</button></td></tr>').join(''):'<tr><td colspan="7">No appointments booked for this doctor yet.</td></tr>';
+function localFallback(){return JSON.parse(localStorage.getItem('appointments')||'[]').filter(a=>a&&a.doctor===doctor)}
+async function loadAppointments(){
+ try{
+   const result=await apiGet('appointments',{doctor});
+   if(result.configured&&result.ok)return result.data||[];
+ }catch(e){}
+ return localFallback();
 }
-function joinMeet(){window.open('https://meet.google.com/','_blank')}
-function addPrescription(){alert('Prescription editor opened for '+doctorName+'.')}
-function saveAvailability(){const m=document.getElementById('availabilityMsg');m.style.display='block';m.textContent='✓ Availability saved for '+doctorName+' on '+document.getElementById('date').value+'.'}
-render();window.addEventListener('storage',render);
+async function render(){
+ const apps=await loadAppointments();
+ const todayApps=apps.filter(a=>String(a.Date||a.date)===today);
+ const upcoming=apps.filter(a=>String(a.Date||a.date)>=today&&String(a.Status||a.status)!=='Completed');
+ const pending=apps.filter(a=>String(a['Payment Preference']||a.payment||'').toLowerCase().includes('after')||String(a['Payment Status']||'').toLowerCase().includes('pending')||String(a.status||'').toLowerCase().includes('pending'));
+ document.getElementById('todayCount').textContent=todayApps.length;
+ document.getElementById('completedCount').textContent=apps.filter(a=>String(a.Status||a.status)==='Completed').length;
+ document.getElementById('upcomingCount').textContent=upcoming.length;
+ document.getElementById('pendingCount').textContent=pending.length;
+ document.getElementById('scheduleNote').textContent='Showing appointments for '+doctorName+' today.';
+ document.getElementById('scheduleRows').innerHTML=todayApps.length?todayApps.map(a=>'<tr><td>'+(a.Time||a.time)+'</td><td>'+(a['Patient Name']||a.name)+'</td><td><span class="badge green">'+(a.Status||a.status||'Confirmed')+'</span></td></tr>').join(''):'<tr><td colspan="3">No appointments for today.</td></tr>';
+ document.getElementById('appointmentRows').innerHTML=apps.length?apps.map(a=>'<tr><td>'+(a.Date||a.date)+'</td><td>'+(a.Time||a.time)+'</td><td>'+(a['Patient Name']||a.name)+'</td><td>'+((a.Reason||a.reason||'').replace(/</g,'&lt;'))+'</td><td>'+(a.Mode||a.mode||'')+'</td><td>'+(a['Payment Status']||a.payment||'Pending')+'</td><td><button class="btn btn-dark" onclick="window.open(\\'https://meet.google.com/\\',\\'_blank\\')">Join Meet</button> <button class="btn btn-outline" onclick="alert(\\'Prescription editor for '+doctorName+'\\')">Prescription</button></td></tr>').join(''):'<tr><td colspan="7">No appointments booked for this doctor yet.</td></tr>';
+}
+async function saveAvailability(){
+ const data={doctor,date:document.getElementById('date').value,startTime:document.getElementById('start').value,endTime:document.getElementById('end').value,slotDuration:parseInt(document.getElementById('duration').value)};
+ try{
+   const result=await apiPost('setAvailability',data);
+   if(result.configured&&result.ok){document.getElementById('availabilityMsg').style.display='block';document.getElementById('availabilityMsg').textContent='✓ Availability saved to Google Sheets for '+doctorName+'.';return;}
+ }catch(e){}
+ document.getElementById('availabilityMsg').style.display='block';document.getElementById('availabilityMsg').textContent='✓ Availability saved locally for this demo.';
+}
+render();
+setInterval(render,10000);
 </script></body></html>

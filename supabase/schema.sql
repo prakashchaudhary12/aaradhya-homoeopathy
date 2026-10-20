@@ -478,7 +478,7 @@ returns text
 language sql
 immutable
 as $$
-  select regexp_replace(coalesce(p_phone,''), '\\D', '', 'g');
+  select regexp_replace(coalesce(p_phone,''), '\D', '', 'g');
 $$;
 
 create or replace function public.claim_patient_account()

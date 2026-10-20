@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Admin Dashboard | Aaradhya's Homoeopathy</title><link rel="stylesheet" href="../css/style.css"></head>
+<body><header class="topbar"><a class="brand" href="../index.html"><span class="brand-mark">✚</span><div><strong>Aaradhya's Homoeopathy</strong><small>Admin portal</small></div></a><nav><button class="btn btn-outline" onclick="logout()">Logout</button></nav></header>
+<main class="page"><div class="page-title"><span class="eyebrow">ADMIN PORTAL</span><h1>Clinic Dashboard</h1><p style="color:var(--muted)">Clinic-wide access is controlled by Supabase authentication and RLS.</p></div>
+<div class="dashboard-grid"><div class="stat"><small>Patients</small><strong id="patients">0</strong></div><div class="stat"><small>Appointments</small><strong id="appointments">0</strong></div><div class="stat"><small>Prescriptions</small><strong id="prescriptions">0</strong></div><div class="stat"><small>Pending payments</small><strong id="payments">0</strong></div></div>
+<section class="panel"><h2 style="font-size:25px">Recent appointments</h2><table class="table"><thead><tr><th>Date</th><th>Time</th><th>Patient</th><th>Doctor</th><th>Mode</th><th>Status</th></tr></thead><tbody id="rows"></tbody></table></section>
+</main>
+<script src="../js/config.js"></script>
+<script>
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+async function init(){
+ try{
+  const sb=await getSupabaseClient(),session=await sb.auth.getSession();
+  if(!session.data.session){location.href='admin-login.html';return;}
+  const p=await sb.from('profiles').select('role').eq('id',session.data.session.user.id).single();
+  if(p.error||p.data.role!=='admin'){await sb.auth.signOut();location.href='admin-login.html';return;}
+  const [pat,appt,rx,pay]=await Promise.all([
+   sb.from('patients').select('id',{count:'exact',head:true}),
+   sb.from('appointments').select('id,appointment_date,appointment_time,status,mode,patients(full_name),doctors(full_name)').order('appointment_date',{ascending:false}).order('appointment_time',{ascending:false}).limit(100),
+   sb.from('prescriptions').select('id',{count:'exact',head:true}),
+   sb.from('payments').select('id',{count:'exact',head:true}).eq('status','pending')
+  ]);
+  if(pat.error)throw pat.error;if(appt.error)throw appt.error;if(rx.error)throw rx.error;if(pay.error)throw pay.error;
+  document.getElementById('patients').textContent=pat.count||0;
+  document.getElementById('appointments').textContent=(appt.data||[]).length;
+  document.getElementById('prescriptions').textContent=rx.count||0;
+  document.getElementById('payments').textContent=pay.count||0;
+  document.getElementById('rows').innerHTML=(appt.data||[]).map(a=>'<tr><td>'+esc(a.appointment_date)+'</td><td>'+esc(String(a.appointment_time||'').slice(0,5))+'</td><td>'+esc(a.patients?.full_name)+'</td><td>'+esc(a.doctors?.full_name)+'</td><td>'+esc(a.mode)+'</td><td>'+esc(a.status)+'</td></tr>').join('')||'<tr><td colspan="6">No appointments yet.</td></tr>';
+ }catch(e){document.getElementById('rows').innerHTML='<tr><td colspan="6">'+esc(e.message||'Unable to load dashboard.')+'</td></tr>';}
+}
+async function logout(){const sb=await getSupabaseClient();await sb.auth.signOut();location.href='admin-login.html';}
+init();
+</script></body></html>

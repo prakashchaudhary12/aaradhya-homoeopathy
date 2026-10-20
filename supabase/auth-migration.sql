@@ -137,6 +137,40 @@ grant execute on function public.claim_patient_account() to authenticated;
 revoke all on function public.claim_doctor_account_by_phone() from public;
 grant execute on function public.claim_doctor_account_by_phone() to authenticated;
 
+create or replace function public.get_my_doctor()
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $
+declare
+  v_doctor public.doctors%rowtype;
+begin
+  if auth.uid() is null then
+    raise exception 'Authentication required';
+  end if;
+
+  select * into v_doctor
+  from public.doctors
+  where user_id = auth.uid() and active = true
+  limit 1;
+
+  if not found then
+    raise exception 'Doctor account is not linked to this login';
+  end if;
+
+  return jsonb_build_object(
+    'doctorId', v_doctor.id,
+    'doctorCode', v_doctor.doctor_code,
+    'fullName', v_doctor.full_name,
+    'qualification', v_doctor.qualification
+  );
+end;
+$;
+
+revoke all on function public.get_my_doctor() from public;
+grant execute on function public.get_my_doctor() to authenticated;
+
 revoke all on function public.normalize_phone(text) from public;
 grant execute on function public.normalize_phone(text) to anon, authenticated;
 

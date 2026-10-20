@@ -34,28 +34,62 @@ function toggleMode(){
  document.getElementById('toggleBtn').textContent=signupMode?'Back to patient login':'Create patient account';
 }
 async function submitForm(){
- const phone=cleanPhone(document.getElementById('mobile').value), password=document.getElementById('password').value, name=document.getElementById('name').value.trim();
+ const phone=cleanPhone(document.getElementById('mobile').value);
+ const password=document.getElementById('password').value;
+ const name=document.getElementById('name').value.trim();
  if(phone.replace(/\D/g,'').length<10)return showMsg('Please enter a valid mobile number.');
  if(password.length<8)return showMsg('Password must be at least 8 characters.');
+
+ const button=document.getElementById('mainBtn');
+ button.disabled=true;
+
  try{
   const sb=await getSupabaseClient();
+
   if(signupMode){
    if(!name)return showMsg('Please enter your full name.');
    if(password!==document.getElementById('confirm').value)return showMsg('Passwords do not match.');
-   const result=await sb.auth.signUp({phone,password,options:{data:{full_name:name,role:'patient'}}});
+
+   showMsg('Creating your patient account...');
+   const result=await sb.auth.signUp({
+     phone,
+     password,
+     options:{data:{full_name:name,role:'patient'}}
+   });
+
    if(result.error)throw result.error;
+
+   // We require an active session so the new account can immediately
+   // be linked to a row in public.patients.
    if(!result.data.session){
-     throw new Error('Account created but phone confirmation is enabled. Disable Confirm phone in Supabase Auth settings to use mobile + password without OTP.');
+     await sb.auth.signOut();
+     throw new Error('Account was created, but Supabase is asking for phone confirmation. In Authentication → Providers → Phone, turn OFF "Enable phone confirmations" for this mobile + password setup.');
    }
+
    const claim=await sb.rpc('claim_patient_account');
-   if(claim.error)throw claim.error;
+   if(claim.error){
+     await sb.auth.signOut();
+     throw new Error('Account was created, but the patient database record could not be created: '+claim.error.message);
+   }
+
+   localStorage.setItem('patientProfile',JSON.stringify(claim.data));
+   showMsg('Account created successfully. Opening your patient dashboard...');
   }else{
+   showMsg('Signing in...');
    const result=await sb.auth.signInWithPassword({phone,password});
    if(result.error)throw result.error;
+
    const claim=await sb.rpc('claim_patient_account');
    if(claim.error)throw claim.error;
+
+   localStorage.setItem('patientProfile',JSON.stringify(claim.data));
   }
+
   location.href='patient-dashboard.html';
- }catch(e){showMsg(e.message||'Unable to continue.');}
+ }catch(e){
+  showMsg(e.message||'Unable to continue.');
+ }finally{
+  button.disabled=false;
+ }
 }
 </script></body></html>

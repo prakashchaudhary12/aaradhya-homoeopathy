@@ -333,3 +333,19 @@ with check (
 
 -- 12. Remove the old appointment view from the previous design.
 drop view if exists public.public_doctor_schedule;
+
+
+-- Supabase PostgREST/table privileges.
+-- RLS policies decide WHICH rows can be accessed; these grants allow the
+-- authenticated role to call the tables at all.
+grant select, update on public.profiles to authenticated;
+
+grant select on public.doctors to anon, authenticated;
+grant select, insert, update, delete on public.patients to authenticated;
+grant select, insert, update, delete on public.availability to authenticated;
+grant select, update on public.appointments to authenticated;
+grant select, insert on public.prescriptions to authenticated;
+grant select, insert, update, delete on public.prescription_medicines to authenticated;
+grant select, insert, update, delete on public.payments to authenticated;
+grant select, insert, update, delete on public.medicine_orders to authenticated;
+grant select, insert, update, delete on public.patient_documents to authenticated;

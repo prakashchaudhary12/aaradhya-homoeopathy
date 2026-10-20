@@ -1,0 +1,4 @@
+# Supabase Edge Function configuration
+# Password recovery must be callable before the user is authenticated.
+[functions.request-password-reset]
+verify_jwt = false

@@ -1,37 +1,60 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Doctor Dashboard | Aaradhya's Homoeopathy</title><link rel="stylesheet" href="../css/style.css"></head><body><header class="topbar"><a class="brand" href="../index.html"><span class="brand-mark">✚</span><div><strong>Aaradhya's Homoeopathy</strong><small>Doctor portal</small></div></a><nav><span id="doctorHeader" style="font-weight:600"></span><a class="btn btn-outline" href="doctor-login.html">Switch doctor</a><a class="btn btn-outline" href="../index.html">Logout</a></nav></header><main class="page"><div class="page-title"><span class="eyebrow">DOCTOR PORTAL</span><h1 id="welcome">Doctor Dashboard</h1><p style="color:var(--muted)">You can see and manage <b>only your own appointments</b>.</p></div><div class="dashboard-grid"><div class="stat"><small>Today's appointments</small><strong id="todayCount">0</strong></div><div class="stat"><small>Completed</small><strong id="completedCount">0</strong></div><div class="stat"><small>Upcoming</small><strong id="upcomingCount">0</strong></div><div class="stat"><small>Pending payments</small><strong id="pendingCount">0</strong></div></div><div class="grid-2"><section class="panel"><h2 style="font-size:25px">Set your availability</h2><div class="form-group"><label>Date</label><input id="date" type="date"></div><div class="grid-2"><div class="form-group"><label>Start</label><input id="start" type="time" value="17:00"></div><div class="form-group"><label>End</label><input id="end" type="time" value="21:00"></div></div><div class="form-group"><label>Slot duration</label><select id="duration"><option>15 minutes</option><option>10 minutes</option></select></div><button class="btn btn-primary full" onclick="saveAvailability()">Publish my availability</button><div id="availabilityMsg" class="notice" style="display:none"></div></section><section class="panel"><h2 style="font-size:25px">My schedule</h2><p id="scheduleNote" style="color:var(--muted);font-size:13px"></p><table class="table"><thead><tr><th>Time</th><th>Patient</th><th>Status</th></tr></thead><tbody id="scheduleRows"></tbody></table></section></div><section class="panel" style="margin-top:22px"><h2 style="font-size:25px">My appointments</h2><p style="color:var(--muted);font-size:13px">Appointments booked with <b id="doctorNameInline"></b> are shown below.</p><table class="table"><thead><tr><th>Date</th><th>Time</th><th>Patient</th><th>Reason</th><th>Mode</th><th>Payment</th><th>Action</th></tr></thead><tbody id="appointmentRows"></tbody></table></section></main><script>
-const doctor=new URLSearchParams(location.search).get('doctor')==='op'?'op':'reshma';
-const doctorName=doctor==='op'?'Dr. O.P. Singh':'Dr. Reshma Singh';
-document.getElementById('doctorHeader').textContent=doctorName;document.getElementById('welcome').textContent='Welcome, '+doctorName;document.getElementById('doctorNameInline').textContent=doctorName;
-const now=new Date();const today=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');document.getElementById('date').value=today;document.getElementById('rxDate').value=today;
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Doctor Dashboard | Aaradhya's Homoeopathy</title><link rel="stylesheet" href="../css/style.css"></head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html"><span class="brand-mark">✚</span><div><strong>Aaradhya's Homoeopathy</strong><small>Doctor portal</small></div></a><nav><span id="doctorHeader" style="font-weight:600"></span><button class="btn btn-outline" onclick="logout()">Logout</button></nav></header>
+<main class="page">
+<div class="page-title"><span class="eyebrow">DOCTOR PORTAL</span><h1 id="welcome">Doctor Dashboard</h1><p style="color:var(--muted)">Appointments and patient records are protected by Supabase authentication and RLS.</p></div>
+<div class="dashboard-grid"><div class="stat"><small>Today's appointments</small><strong id="todayCount">0</strong></div><div class="stat"><small>Completed</small><strong id="completedCount">0</strong></div><div class="stat"><small>Upcoming</small><strong id="upcomingCount">0</strong></div><div class="stat"><small>Pending payments</small><strong id="pendingCount">0</strong></div></div>
+<div class="grid-2">
+<section class="panel"><h2 style="font-size:25px">Set your availability</h2><div class="form-group"><label>Date</label><input id="date" type="date"></div><div class="grid-2"><div class="form-group"><label>Start</label><input id="start" type="time" value="17:00"></div><div class="form-group"><label>End</label><input id="end" type="time" value="21:00"></div></div><div class="form-group"><label>Slot duration</label><select id="duration"><option value="15">15 minutes</option><option value="10">10 minutes</option></select></div><button class="btn btn-primary full" onclick="saveAvailability()">Publish my availability</button><div id="availabilityMsg" class="notice" style="display:none"></div></section>
+<section class="panel"><h2 style="font-size:25px">Today</h2><table class="table"><thead><tr><th>Time</th><th>Patient</th><th>Status</th></tr></thead><tbody id="scheduleRows"></tbody></table></section>
+</div>
+<section class="panel" style="margin-top:22px"><h2 style="font-size:25px">My appointments</h2><table class="table"><thead><tr><th>Date</th><th>Time</th><th>Patient</th><th>Reason</th><th>Mode</th><th>Payment</th><th>Action</th></tr></thead><tbody id="appointmentRows"></tbody></table></section>
+<section id="prescriptionPanel" class="panel" style="margin-top:22px"><h2 style="font-size:25px">Create prescription</h2><p style="color:var(--muted);font-size:13px">Select an appointment. The database verifies that the prescription belongs to your authenticated doctor account.</p>
+<div class="grid-2"><div><div class="form-group"><label>Appointment ID</label><input id="rxAppointmentId" readonly></div><div class="form-group"><label>Patient ID</label><input id="rxPatientId" readonly></div><div class="form-group"><label>Patient name</label><input id="rxPatientName" readonly></div><div class="form-group"><label>Date</label><input id="rxDate" type="date"></div></div>
+<div><div class="form-group"><label>Complaints</label><textarea id="rxComplaints" rows="3"></textarea></div><div class="form-group"><label>Diagnosis</label><textarea id="rxDiagnosis" rows="3"></textarea></div><div class="form-group"><label>Advice</label><textarea id="rxAdvice" rows="3"></textarea></div></div></div>
+<div class="form-group"><label>Medicines</label><textarea id="rxMedicines" rows="5" placeholder="Medicine | Dose | Frequency"></textarea></div>
+<button class="btn btn-primary" onclick="createPrescription()">Save Prescription</button><div id="rxMsg" class="notice" style="display:none"></div>
+</section>
+</main>
+<script src="../js/config.js"></script>
+<script>
 let currentAppointments=[];
-function localFallback(){return JSON.parse(localStorage.getItem('appointments')||'[]').filter(a=>a&&a.doctor===doctor)}
-async function loadAppointments(){try{const r=await apiGet('appointments',{doctor});if(r.configured&&r.ok)return r.data||[]}catch(e){}return localFallback()}
-function field(a,name,fallback=''){return a[name]!==undefined?a[name]:a[fallback]||''}
-async function render(){
- currentAppointments=await loadAppointments();
- const todayApps=currentAppointments.filter(a=>String(field(a,'Date','date'))===today);
- const upcoming=currentAppointments.filter(a=>String(field(a,'Date','date'))>=today&&String(field(a,'Status','status'))!=='Completed');
- const pending=currentAppointments.filter(a=>String(field(a,'Payment Preference','payment')||'').toLowerCase().includes('after')||String(field(a,'Payment Status')||'').toLowerCase().includes('pending')||String(field(a,'Status','status')||'').toLowerCase().includes('pending'));
- document.getElementById('todayCount').textContent=todayApps.length;document.getElementById('completedCount').textContent=currentAppointments.filter(a=>String(field(a,'Status','status'))==='Completed').length;document.getElementById('upcomingCount').textContent=upcoming.length;document.getElementById('pendingCount').textContent=pending.length;
- document.getElementById('scheduleNote').textContent='Showing appointments for '+doctorName+' today.';
- document.getElementById('scheduleRows').innerHTML=todayApps.length?todayApps.map(a=>'<tr><td>'+field(a,'Time','time')+'</td><td>'+field(a,'Patient Name','name')+'</td><td><span class="badge green">'+field(a,'Status','status')+'</span></td></tr>').join(''):'<tr><td colspan="3">No appointments for today.</td></tr>';
- document.getElementById('appointmentRows').innerHTML=currentAppointments.length?currentAppointments.map((a,i)=>'<tr><td>'+field(a,'Date','date')+'</td><td>'+field(a,'Time','time')+'</td><td>'+field(a,'Patient Name','name')+'</td><td>'+String(field(a,'Reason','reason')).replace(/</g,'&lt;')+'</td><td>'+field(a,'Mode','mode')+'</td><td>'+field(a,'Payment Status','payment')+'</td><td><button class="btn btn-dark" onclick="joinMeet()">Meet</button> <button class="btn btn-outline" onclick="selectAppointment('+i+')">Prescription</button></td></tr>').join(''):'<tr><td colspan="7">No appointments booked for this doctor yet.</td></tr>';
-}
-function joinMeet(){window.open('https://meet.google.com/','_blank')}
-function selectAppointment(index){
- const a=currentAppointments[index];document.getElementById('rxAppointmentId').value=field(a,'Appointment ID','id');document.getElementById('rxPatientId').value=field(a,'Patient ID','patientId');document.getElementById('rxPatientName').value=field(a,'Patient Name','name');document.getElementById('rxDate').value=field(a,'Date','date')||today;document.getElementById('rxComplaints').value=field(a,'Reason','reason');document.getElementById('rxDiagnosis').value='';document.getElementById('rxAdvice').value='';document.getElementById('rxMedicines').value='';document.getElementById('prescriptionPanel').scrollIntoView({behavior:'smooth'});
-}
-async function createPrescription(){
- const appointmentId=document.getElementById('rxAppointmentId').value,patientId=document.getElementById('rxPatientId').value,patientName=document.getElementById('rxPatientName').value.trim();
- if(!appointmentId||!patientId||!patientName)return alert('Select an appointment with a patient first.');
- const medicines=document.getElementById('rxMedicines').value.split('\n').map(x=>x.trim()).filter(Boolean).map(line=>{const p=line.split('|').map(x=>x.trim());return{name:p[0]||'',dose:p[1]||'',frequency:p[2]||''}});
+function todayISO(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+async function init(){
  try{
-  const result=await apiPost('createPrescription',{appointmentId,patientId,patientName,doctor,date:document.getElementById('rxDate').value,complaints:document.getElementById('rxComplaints').value,diagnosis:document.getElementById('rxDiagnosis').value,advice:document.getElementById('rxAdvice').value,medicines});
-  const m=document.getElementById('rxMsg');m.style.display='block';
-  if(result.configured&&result.ok){m.innerHTML='✓ Prescription created. <a href="'+result.pdfUrl+'" target="_blank">Open PDF</a> · <a href="'+result.documentUrl+'" target="_blank">Open Google Doc</a>';}
-  else m.textContent='The Google backend is not connected yet. Add the Apps Script /exec URL in js/config.js.';
- }catch(e){alert('Unable to create prescription.')}
+  const sb=await getSupabaseClient();const session=await sb.auth.getSession();if(!session.data.session){location.href='doctor-login.html';return;}
+  const user=session.data.session.user;
+  const {data:doc,error}=await sb.from('doctors').select('id,doctor_code,full_name').eq('user_id',user.id).eq('active',true).single();
+  if(error)throw error;
+  document.getElementById('doctorHeader').textContent=doc.full_name;document.getElementById('welcome').textContent='Welcome, '+doc.full_name;document.getElementById('date').value=todayISO();document.getElementById('rxDate').value=todayISO();
+  await render();
+ }catch(e){document.getElementById('appointmentRows').innerHTML='<tr><td colspan="7">'+esc(e.message||'Unable to load doctor dashboard.')+'</td></tr>';}
 }
-async function saveAvailability(){const data={doctor,date:document.getElementById('date').value,startTime:document.getElementById('start').value,endTime:document.getElementById('end').value,slotDuration:parseInt(document.getElementById('duration').value)};try{const r=await apiPost('setAvailability',data);if(r.configured&&r.ok){document.getElementById('availabilityMsg').style.display='block';document.getElementById('availabilityMsg').textContent='✓ Availability saved to Google Sheets for '+doctorName+'.';return;}}catch(e){}document.getElementById('availabilityMsg').style.display='block';document.getElementById('availabilityMsg').textContent='✓ Availability saved locally for this demo.'}
-render();setInterval(render,10000);
+async function render(){
+ const r=await apiGet('appointments');if(!r.ok)throw new Error(r.error||'Unable to load appointments');currentAppointments=r.data||[];
+ const today=todayISO(),todayApps=currentAppointments.filter(a=>String(a.Date)===today),upcoming=currentAppointments.filter(a=>String(a.Date)>=today&&a.Status!=='Completed'&&a.Status!=='Cancelled');
+ document.getElementById('todayCount').textContent=todayApps.length;document.getElementById('completedCount').textContent=currentAppointments.filter(a=>a.Status==='Completed').length;document.getElementById('upcomingCount').textContent=upcoming.length;document.getElementById('pendingCount').textContent=currentAppointments.filter(a=>String(a['Payment Status']).toLowerCase()==='pending').length;
+ document.getElementById('scheduleRows').innerHTML=todayApps.length?todayApps.map(a=>'<tr><td>'+esc(a.Time)+'</td><td>'+esc(a['Patient Name'])+'</td><td><span class="badge green">'+esc(a.Status)+'</span></td></tr>').join(''):'<tr><td colspan="3">No appointments for today.</td></tr>';
+ document.getElementById('appointmentRows').innerHTML=currentAppointments.length?currentAppointments.map((a,i)=>'<tr><td>'+esc(a.Date)+'</td><td>'+esc(a.Time)+'</td><td>'+esc(a['Patient Name'])+'</td><td>'+esc(a.Reason)+'</td><td>'+esc(a.Mode)+'</td><td>'+esc(a['Payment Status'])+'</td><td><button class="btn btn-dark" onclick="joinMeet('+i+')">Meet</button> <button class="btn btn-outline" onclick="selectAppointment('+i+')">Prescription</button></td></tr>').join(''):'<tr><td colspan="7">No appointments booked for you yet.</td></tr>';
+}
+function joinMeet(i){const a=currentAppointments[i];if(a['Meet Link'])window.open(a['Meet Link'],'_blank');else alert('No Google Meet link is set for this appointment yet.');}
+function selectAppointment(i){const a=currentAppointments[i];document.getElementById('rxAppointmentId').value=a['Appointment ID']||'';document.getElementById('rxPatientId').value=a['Patient ID']||'';document.getElementById('rxPatientName').value=a['Patient Name']||'';document.getElementById('rxDate').value=a.Date||todayISO();document.getElementById('rxComplaints').value=a.Reason||'';document.getElementById('rxDiagnosis').value='';document.getElementById('rxAdvice').value='';document.getElementById('rxMedicines').value='';document.getElementById('rxMsg').style.display='none';document.getElementById('prescriptionPanel').scrollIntoView({behavior:'smooth'});}
+async function createPrescription(){
+ const appointmentId=document.getElementById('rxAppointmentId').value,patientId=document.getElementById('rxPatientId').value;
+ if(!appointmentId||!patientId)return alert('Select an appointment first.');
+ const medicines=document.getElementById('rxMedicines').value.split('\n').map(x=>x.trim()).filter(Boolean).map(line=>{const p=line.split('|').map(x=>x.trim());return{name:p[0],dose:p[1]||'',frequency:p[2]||''};});
+ const m=document.getElementById('rxMsg');
+ try{const r=await apiPost('createPrescription',{appointmentId,patientId,complaints:document.getElementById('rxComplaints').value,diagnosis:document.getElementById('rxDiagnosis').value,advice:document.getElementById('rxAdvice').value,medicines});if(!r.ok)throw new Error(r.error);m.style.display='block';m.textContent='Prescription saved successfully.';await render();}
+ catch(e){m.style.display='block';m.textContent=e.message||'Unable to create prescription.';}
+}
+async function saveAvailability(){
+ const m=document.getElementById('availabilityMsg');
+ try{const r=await apiPost('setAvailability',{date:document.getElementById('date').value,startTime:document.getElementById('start').value,endTime:document.getElementById('end').value,slotDuration:Number(document.getElementById('duration').value)});if(!r.ok)throw new Error(r.error);m.style.display='block';m.textContent='Availability saved.';}
+ catch(e){m.style.display='block';m.textContent=e.message||'Unable to save availability.';}
+}
+async function logout(){const sb=await getSupabaseClient();await sb.auth.signOut();location.href='doctor-login.html';}
+init();setInterval(()=>render().catch(()=>{}),15000);
 </script></body></html>

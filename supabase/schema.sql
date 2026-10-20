@@ -226,6 +226,11 @@ for update to authenticated
 using (id = auth.uid())
 with check (id = auth.uid());
 
+create policy "doctors public read active"
+on public.doctors
+for select to anon, authenticated
+using (active = true);
+
 create policy "patients own select" on public.patients
 for select to authenticated
 using (user_id = auth.uid());
@@ -450,6 +455,9 @@ $$;
 
 revoke all on function public.book_appointment_public(text,text,text,date,text,text,text,text) from public;
 grant execute on function public.book_appointment_public(text,text,text,date,text,text,text,text) to anon, authenticated;
+
+revoke select on public.doctors from anon, authenticated;
+grant select (id, doctor_code, full_name, qualification, active) on public.doctors to anon, authenticated;
 
 -- Helpful views for the frontend. These are security-barrier views over RLS-protected base tables.
 create or replace view public.public_doctor_schedule as

@@ -259,3 +259,24 @@ function to24Hour(value) {
 
   return String(h).padStart(2, "0") + ":" + min;
 }
+
+
+async function adminApi(action, data = {}) {
+  try {
+    const sb = await getSupabaseClient();
+    const { data: result, error } = await sb.functions.invoke("admin-user-management", {
+      body: { action, ...data }
+    });
+    if (error) {
+      let message = error.message || "Admin operation failed.";
+      try {
+        const details = await error.context?.json?.();
+        if (details?.error) message = details.error;
+      } catch (_) {}
+      return { ok: false, error: message };
+    }
+    return result || { ok: true };
+  } catch (error) {
+    return { ok: false, error: error.message || String(error) };
+  }
+}

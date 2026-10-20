@@ -67,6 +67,7 @@ export default {
           created_at: u.created_at,
           last_sign_in_at: u.last_sign_in_at || null,
           confirmed: Boolean(u.email_confirmed_at || u.phone_confirmed_at),
+          active: !(u.banned_until && new Date(u.banned_until).getTime() > Date.now()),
         };
       });
 
@@ -166,6 +167,82 @@ export default {
       }
 
       return json({ ok: true, user: { id: user.id, role, full_name: fullName } });
+    }
+
+
+
+    if (action === "listDoctors") {
+      const { data, error } = await ctx.supabaseAdmin
+        .from("doctors")
+        .select("id,doctor_code,full_name,qualification,phone,user_id,active")
+        .order("doctor_code");
+
+      if (error) return json({ error: error.message }, 400);
+
+      return json({
+        doctors: (data || []).map((d: any) => ({
+          id: d.id,
+          doctor_code: d.doctor_code,
+          full_name: d.full_name,
+          qualification: d.qualification,
+          phone: d.phone || "",
+          user_id: d.user_id || null,
+          active: d.active,
+        })),
+      });
+    }
+
+    if (action === "updatePatient") {
+      const patientId = String(body?.patientId || "");
+      const fullName = String(body?.fullName || "").trim();
+      const phone = String(body?.phone || "").trim();
+
+      if (!patientId || !fullName) {
+        return json({ error: "Patient ID and full name are required" }, 400);
+      }
+      if (phone.replace(/\D/g, "").length < 10) {
+        return json({ error: "Valid 10-digit mobile number is required" }, 400);
+      }
+
+      const { data: patient, error: patientReadError } = await ctx.supabaseAdmin
+        .from("patients")
+        .select("id,user_id")
+        .eq("id", patientId)
+        .single();
+
+      if (patientReadError) return json({ error: patientReadError.message }, 400);
+
+      const { error: patientUpdateError } = await ctx.supabaseAdmin
+        .from("patients")
+        .update({
+          full_name: fullName,
+          phone,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", patientId);
+
+      if (patientUpdateError) return json({ error: patientUpdateError.message }, 400);
+
+      if (patient.user_id) {
+        const authUpdate = await ctx.supabaseAdmin.auth.admin.updateUserById(
+          patient.user_id,
+          { phone, user_metadata: { full_name: fullName, role: "patient" } }
+        );
+        if (authUpdate.error) return json({ error: authUpdate.error.message }, 400);
+      }
+
+      if (patient.user_id) {
+        await ctx.supabaseAdmin
+          .from("profiles")
+          .upsert({
+            id: patient.user_id,
+            role: "patient",
+            full_name: fullName,
+            phone,
+          });
+      }
+
+      return json({ ok: true, message: "Patient details updated" });
     }
 
     if (action === "updateDoctor") {

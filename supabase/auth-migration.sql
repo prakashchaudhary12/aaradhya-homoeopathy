@@ -349,3 +349,25 @@ grant select, insert, update, delete on public.prescription_medicines to authent
 grant select, insert, update, delete on public.payments to authenticated;
 grant select, insert, update, delete on public.medicine_orders to authenticated;
 grant select, insert, update, delete on public.patient_documents to authenticated;
+
+
+-- Admin must be able to read clinic-wide prescriptions.
+drop policy if exists "prescriptions admin all" on public.prescriptions;
+create policy "prescriptions admin all"
+on public.prescriptions
+for all
+to authenticated
+using (public.current_profile_role() = 'admin')
+with check (public.current_profile_role() = 'admin');
+
+-- Table privileges are required in addition to RLS policies.
+grant select, update on public.profiles to authenticated;
+grant select on public.doctors to anon, authenticated;
+grant select, insert, update, delete on public.patients to authenticated;
+grant select, insert, update, delete on public.availability to authenticated;
+grant select, update on public.appointments to authenticated;
+grant select, insert on public.prescriptions to authenticated;
+grant select, insert, update, delete on public.prescription_medicines to authenticated;
+grant select, insert, update, delete on public.payments to authenticated;
+grant select, insert, update, delete on public.medicine_orders to authenticated;
+grant select, insert, update, delete on public.patient_documents to authenticated;

@@ -71,7 +71,7 @@ with check (public.current_profile_role() = 'admin');
 
 -- Data API privileges for the admin browser UI. RLS controls which rows
 -- an authenticated admin may access.
-grant select, insert, update, delete on public.doctors to authenticated;
+grant select (id, doctor_code, full_name, qualification, active) on public.doctors to authenticated;
 grant select, insert, update, delete on public.availability to authenticated;
 grant select, insert, update, delete on public.patients to authenticated;
 grant select, insert, update, delete on public.prescriptions to authenticated;

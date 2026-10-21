@@ -223,6 +223,79 @@ export default {
 
 
 
+
+    if (action === "listPatients") {
+      const { data, error } = await ctx.supabaseAdmin
+        .from("patients")
+        .select("id,patient_code,full_name,phone,created_at,user_id")
+        .order("created_at", { ascending: false });
+
+      if (error) return json({ error: error.message }, 400);
+      return json({ patients: data || [] });
+    }
+
+    if (action === "listAppointments") {
+      const { data, error } = await ctx.supabaseAdmin
+        .from("appointments")
+        .select("id,appointment_code,appointment_date,appointment_time,mode,payment_status,status,meet_link,patient_id,doctor_id,patients(full_name,phone),doctors(full_name,doctor_code)")
+        .order("appointment_date", { ascending: false })
+        .order("appointment_time", { ascending: false });
+
+      if (error) return json({ error: error.message }, 400);
+      return json({ appointments: data || [] });
+    }
+
+    if (action === "listSchedules") {
+      const { data, error } = await ctx.supabaseAdmin
+        .from("availability")
+        .select("id,doctor_id,availability_date,start_time,end_time,slot_duration,active,doctors(full_name)")
+        .order("availability_date", { ascending: false });
+
+      if (error) return json({ error: error.message }, 400);
+      return json({ schedules: data || [] });
+    }
+
+    if (action === "listPayments") {
+      const { data, error } = await ctx.supabaseAdmin
+        .from("payments")
+        .select("id,created_at,amount,status,provider,provider_reference,patients(full_name)")
+        .order("created_at", { ascending: false });
+
+      if (error) return json({ error: error.message }, 400);
+      return json({ payments: data || [] });
+    }
+
+    if (action === "listOrders") {
+      const { data, error } = await ctx.supabaseAdmin
+        .from("medicine_orders")
+        .select("id,created_at,items,status,notes,patients(full_name)")
+        .order("created_at", { ascending: false });
+
+      if (error) return json({ error: error.message }, 400);
+      return json({ orders: data || [] });
+    }
+
+    if (action === "getStats") {
+      const [patientsResult, appointmentsResult, prescriptionsResult, paymentsResult] = await Promise.all([
+        ctx.supabaseAdmin.from("patients").select("id", { count: "exact", head: true }),
+        ctx.supabaseAdmin.from("appointments").select("id", { count: "exact", head: true }),
+        ctx.supabaseAdmin.from("prescriptions").select("id", { count: "exact", head: true }),
+        ctx.supabaseAdmin.from("payments").select("id", { count: "exact", head: true }).eq("status", "pending"),
+      ]);
+
+      const firstError = [patientsResult, appointmentsResult, prescriptionsResult, paymentsResult]
+        .map((r: any) => r.error)
+        .find(Boolean);
+      if (firstError) return json({ error: firstError.message }, 400);
+
+      return json({
+        patients: patientsResult.count || 0,
+        appointments: appointmentsResult.count || 0,
+        prescriptions: prescriptionsResult.count || 0,
+        pendingPayments: paymentsResult.count || 0,
+      });
+    }
+
     if (action === "listDoctors") {
       const { data, error } = await ctx.supabaseAdmin
         .from("doctors")

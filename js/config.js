@@ -256,8 +256,14 @@ function to24Hour(value) {
 async function adminApi(action, data = {}) {
   try {
     const sb = await getSupabaseClient();
+    const sessionResult = await sb.auth.getSession();
+    if (sessionResult.error) throw sessionResult.error;
+    const accessToken = sessionResult.data.session && sessionResult.data.session.access_token;
+    if (!accessToken) throw new Error("Authentication required");
+
     const { data: result, error } = await sb.functions.invoke("admin-user-management", {
-      body: { action, ...data }
+      body: { action, ...data },
+      headers: { Authorization: "Bearer " + accessToken }
     });
     if (error) {
       let message = error.message || "Admin operation failed.";

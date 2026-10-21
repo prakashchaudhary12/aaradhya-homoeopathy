@@ -114,7 +114,7 @@ begin
       )
       values (
         auth.uid(),
-        'TEST-ADMIN',
+        'TEST-ADMIN-' || upper(substr(replace(auth.uid()::text,'-',''),1,8)),
         coalesce(nullif(trim(v_name),''),'Admin Test Patient'),
         case
           when public.normalize_phone(v_phone) <> ''

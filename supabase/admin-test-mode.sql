@@ -44,8 +44,8 @@ as $$
 $$;
 
 create or replace function public.set_admin_test_portal(
-  p_portal_role text,
-  p_doctor_code text default null
+  p_doctor_code text default null,
+  p_portal_role text default 'patient'
 )
 returns jsonb
 language plpgsql

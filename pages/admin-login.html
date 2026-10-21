@@ -24,6 +24,7 @@ async function login(){
   const profile=await sb.from('profiles').select('role,full_name').eq('id',result.data.user.id).single();
   if(profile.error)throw profile.error;
   if(profile.data.role!=='admin'){await sb.auth.signOut();throw new Error('This account is not an administrator.');}
+  await sb.rpc('clear_admin_test_portal');
   location.href='admin-dashboard.html';
  }catch(e){msg.textContent=e.message||'Unable to sign in.';}
  finally{document.getElementById('loginBtn').disabled=false;}

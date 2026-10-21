@@ -403,6 +403,112 @@ export default {
       return json({ ok: true, message: "Doctor account updated" });
     }
 
+    if (action === "updateAppointment") {
+      const appointmentId = String(body?.appointmentId || "");
+      if (!appointmentId) return json({ error: "Appointment ID is required" }, 400);
+
+      const patch: Record<string, unknown> = {};
+      if (body?.appointmentDate) patch.appointment_date = String(body.appointmentDate);
+      if (body?.appointmentTime) patch.appointment_time = String(body.appointmentTime);
+      if (body?.mode) patch.mode = String(body.mode);
+      if (body?.paymentStatus) patch.payment_status = String(body.paymentStatus);
+      if (body?.status) patch.status = String(body.status);
+      patch.meet_link = body?.meetLink ? String(body.meetLink).trim() : null;
+      patch.updated_at = new Date().toISOString();
+
+      const { error } = await ctx.supabaseAdmin
+        .from("appointments")
+        .update(patch)
+        .eq("id", appointmentId);
+
+      if (error) return json({ error: error.message }, 400);
+      return json({ ok: true, message: "Appointment updated" });
+    }
+
+    if (action === "saveSchedule") {
+      const doctorCode = String(body?.doctorCode || "").toLowerCase();
+      const date = String(body?.date || "");
+      const startTime = String(body?.startTime || "");
+      const endTime = String(body?.endTime || "");
+      const slotDuration = Number(body?.slotDuration || 15);
+
+      if (!["reshma", "op"].includes(doctorCode) || !date || !startTime || !endTime) {
+        return json({ error: "Doctor, date, start time and end time are required" }, 400);
+      }
+      if (![10, 15].includes(slotDuration)) {
+        return json({ error: "Slot duration must be 10 or 15 minutes" }, 400);
+      }
+
+      const { data: doctor, error: doctorError } = await ctx.supabaseAdmin
+        .from("doctors")
+        .select("id")
+        .eq("doctor_code", doctorCode)
+        .single();
+
+      if (doctorError) return json({ error: doctorError.message }, 400);
+
+      const { data, error } = await ctx.supabaseAdmin
+        .from("availability")
+        .upsert({
+          doctor_id: doctor.id,
+          availability_date: date,
+          start_time: startTime,
+          end_time: endTime,
+          slot_duration: slotDuration,
+          active: true,
+        }, { onConflict: "doctor_id,availability_date,start_time,end_time" })
+        .select()
+        .single();
+
+      if (error) return json({ error: error.message }, 400);
+      return json({ ok: true, schedule: data });
+    }
+
+    if (action === "toggleSchedule") {
+      const id = String(body?.scheduleId || "");
+      if (!id) return json({ error: "Schedule ID is required" }, 400);
+
+      const { error } = await ctx.supabaseAdmin
+        .from("availability")
+        .update({ active: Boolean(body?.active) })
+        .eq("id", id);
+
+      if (error) return json({ error: error.message }, 400);
+      return json({ ok: true, message: "Schedule updated" });
+    }
+
+    if (action === "updatePayment") {
+      const id = String(body?.paymentId || "");
+      const status = String(body?.status || "");
+      if (!id || !["pending", "paid", "failed", "refunded"].includes(status)) {
+        return json({ error: "Valid payment ID and status are required" }, 400);
+      }
+
+      const { error } = await ctx.supabaseAdmin
+        .from("payments")
+        .update({ status })
+        .eq("id", id);
+
+      if (error) return json({ error: error.message }, 400);
+      return json({ ok: true, message: "Payment updated" });
+    }
+
+    if (action === "updateOrder") {
+      const id = String(body?.orderId || "");
+      const status = String(body?.status || "");
+      if (!id || !["requested", "confirmed", "processing", "shipped", "completed", "cancelled"].includes(status)) {
+        return json({ error: "Valid order ID and status are required" }, 400);
+      }
+
+      const { error } = await ctx.supabaseAdmin
+        .from("medicine_orders")
+        .update({ status })
+        .eq("id", id);
+
+      if (error) return json({ error: error.message }, 400);
+      return json({ ok: true, message: "Medicine order updated" });
+    }
+
     if (action === "setUserActive") {
       const userId = String(body?.userId || "");
       const active = Boolean(body?.active);

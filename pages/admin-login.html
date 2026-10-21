@@ -21,9 +21,11 @@ async function login(){
   const sb=await getSupabaseClient();
   const result=await sb.auth.signInWithPassword({email,password});
   if(result.error)throw result.error;
-  const profile=await sb.from('profiles').select('role,full_name').eq('id',result.data.user.id).single();
-  if(profile.error)throw profile.error;
-  if(profile.data.role!=='admin'){await sb.auth.signOut();throw new Error('This account is not an administrator.');}
+  const check=await adminApi('getStats');
+  if(!check.ok){
+    await sb.auth.signOut();
+    throw new Error(check.error||'This account is not an administrator.');
+  }
   await sb.rpc('clear_admin_test_portal');
   location.href='admin-dashboard.html';
  }catch(e){msg.textContent=e.message||'Unable to sign in.';}

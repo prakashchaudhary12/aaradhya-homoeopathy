@@ -169,12 +169,7 @@ async function apiPost(action, data = {}) {
       const { data: userResult, error: userError } = await sb.auth.getUser();
       if (userError || !userResult.user) throw new Error("Please sign in as a doctor first.");
 
-      const { data: doctorRow, error: doctorError } = await sb
-        .from("doctors")
-        .select("id,full_name")
-        .eq("user_id", userResult.user.id)
-        .eq("active", true)
-        .single();
+      const { data: doctorRow, error: doctorError } = await sb.rpc("get_my_doctor");
       if (doctorError) throw doctorError;
 
       const { data: rx, error: rxError } = await sb

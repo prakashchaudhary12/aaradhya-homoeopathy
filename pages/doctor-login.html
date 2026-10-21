@@ -9,7 +9,27 @@
 <div class="form-group"><label>Mobile number</label><input id="mobile" type="tel" inputmode="tel" autocomplete="tel" placeholder="98765 43210"></div>
 <div class="form-group"><label>Password</label><input id="password" type="password" autocomplete="current-password" placeholder="Enter password"></div>
 <button id="loginBtn" class="btn btn-primary full" onclick="login()">Login to Doctor Dashboard</button><div id="msg" class="notice" style="display:none;margin-top:14px"></div><p class="center"><a href="forgot-password.html?role=doctor">Forgot Password?</a></p>
-</div></main>
+</div>
+
+<div class="login-card" style="margin-top:18px">
+<span class="eyebrow">NEW DOCTOR</span>
+<h2 style="font-size:26px;margin:6px 0 8px">Create Doctor Account</h2>
+<p style="color:var(--muted)">Use the mobile number already registered by the clinic for the selected doctor. This creates the password login for that doctor.</p>
+<div class="form-group">
+<label>Doctor</label>
+<select id="signupDoctor">
+<option value="reshma">Dr. Reshma Singh</option>
+<option value="op">Dr. O.P. Singh</option>
+</select>
+</div>
+<div class="form-group"><label>Full name</label><input id="signupName" type="text" autocomplete="name" placeholder="Doctor full name"></div>
+<div class="form-group"><label>Registered mobile number</label><input id="signupMobile" type="tel" inputmode="tel" autocomplete="tel" placeholder="98765 43210"></div>
+<div class="form-group"><label>Create password</label><input id="signupPassword" type="password" autocomplete="new-password" minlength="8" placeholder="Minimum 8 characters"></div>
+<div class="form-group"><label>Confirm password</label><input id="signupPassword2" type="password" autocomplete="new-password" minlength="8" placeholder="Re-enter password"></div>
+<button id="signupBtn" class="btn btn-dark full" onclick="createDoctorAccount()">Create Doctor Account</button>
+<div id="signupMsg" class="notice" style="display:none;margin-top:14px"></div>
+</div>
+</main>
 <script src="../js/config.js"></script>
 <script>
 function cleanPhone(v){
@@ -18,6 +38,47 @@ function cleanPhone(v){
  if(digits.length===12&&digits.startsWith('91'))return '+'+digits;
  return String(v||'').trim();
 }
+async function createDoctorAccount(){
+ const message=document.getElementById('signupMsg');
+ const doctorCode=document.getElementById('signupDoctor').value;
+ const name=document.getElementById('signupName').value.trim();
+ const phone=cleanPhone(document.getElementById('signupMobile').value);
+ const password=document.getElementById('signupPassword').value;
+ const password2=document.getElementById('signupPassword2').value;
+ message.style.display='block';
+ message.textContent='';
+ if(!name)return message.textContent='Please enter the doctor name.';
+ if(phone.replace(/\D/g,'').length!==10)return message.textContent='Please enter a valid 10-digit mobile number.';
+ if(password.length<8)return message.textContent='Password must be at least 8 characters.';
+ if(password!==password2)return message.textContent='Passwords do not match.';
+ const btn=document.getElementById('signupBtn');
+ btn.disabled=true;
+ try{
+  const sb=await getSupabaseClient();
+  const signup=await sb.auth.signUp({
+   phone,
+   password,
+   options:{data:{full_name:name,role:'doctor',doctor_code:doctorCode}}
+  });
+  if(signup.error)throw signup.error;
+  if(!signup.data.user)throw new Error('Unable to create the doctor Auth account.');
+
+  if(!signup.data.session){
+   throw new Error('Supabase phone confirmation is enabled. Complete the OTP verification first, then log in and finish the doctor account setup.');
+  }
+
+  const claim=await sb.rpc('claim_doctor_account', {p_doctor_code:doctorCode});
+  if(claim.error)throw claim.error;
+  localStorage.setItem('doctorProfile',JSON.stringify(claim.data));
+  message.textContent='Doctor account created successfully. Opening Doctor Dashboard...';
+  location.href='doctor-dashboard.html';
+ }catch(e){
+  message.textContent=e.message||'Unable to create the doctor account.';
+ }finally{
+  btn.disabled=false;
+ }
+}
+
 async function login(){
  const phone=cleanPhone(document.getElementById('mobile').value),password=document.getElementById('password').value;
  const msg=document.getElementById('msg');

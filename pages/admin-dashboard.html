@@ -30,6 +30,7 @@
 <span class="eyebrow">ADMIN PORTAL</span>
 <h1>Clinic Administration</h1>
 <p style="color:var(--muted)">Manage users, passwords, doctors, patients, appointments, schedules, payments and medicine requests.</p>
+<div id="globalMsg" class="notice" style="display:none;margin-top:14px"></div>
 </div>
 
 <div class="dashboard-grid">
@@ -135,7 +136,6 @@
 </section>
 </section>
 
-<div id="globalMsg" class="notice" style="display:none;margin-top:20px"></div>
 </main>
 
 <script src="../js/config.js"></script>
@@ -215,9 +215,9 @@ async function saveDoctor(id){
  const r=await adminApi('updateDoctor',{doctorId:id,phone,active});if(!r.ok){msg('globalMsg',r.error);return;}await loadDoctors();
 }
 async function loadPatients(){
- const sb=await ensureAdmin();if(!sb)return;
- const r=await sb.from('patients').select('id,patient_code,full_name,phone,created_at,user_id').order('created_at',{ascending:false});
- if(r.error){msg('globalMsg',r.error.message);return;}patients=r.data||[];
+ const r=await adminApi('listPatients');
+ if(!r.ok){msg('globalMsg',r.error||'Unable to load patients.');return;}
+ patients=r.patients||[];
  document.getElementById('patientRows').innerHTML=patients.map(p=>'<tr><td>'+esc(p.patient_code)+'</td><td><input id="pname-'+p.id+'" value="'+esc(p.full_name)+'"></td><td><input id="pphone-'+p.id+'" value="'+esc(p.phone)+'" inputmode="numeric"></td><td>'+esc((p.created_at||'').slice(0,10))+'</td><td><button class="btn btn-primary" onclick="savePatient(\''+p.id+'\')">Save</button></td></tr>').join('')||'<tr><td colspan="5">No patients.</td></tr>';
 }
 async function savePatient(id){
@@ -239,9 +239,9 @@ async function saveAppointment(id){
  const r=await sb.from('appointments').update(patch).eq('id',id);if(r.error){msg('globalMsg',r.error.message);return;}await loadAppointments();await refreshStats();
 }
 async function loadSchedules(){
- const sb=await ensureAdmin();if(!sb)return;
- const r=await sb.from('availability').select('id,doctor_id,availability_date,start_time,end_time,slot_duration,active,doctors(full_name)').order('availability_date',{ascending:false});
- if(r.error){msg('globalMsg',r.error.message);return;}schedules=r.data||[];
+ const r=await adminApi('listSchedules');
+ if(!r.ok){msg('globalMsg',r.error||'Unable to load schedules.');return;}
+ schedules=r.schedules||[];
  document.getElementById('scheduleRows').innerHTML=schedules.map(s=>'<tr><td>'+esc(s.doctors?.full_name||'')+'</td><td>'+esc(s.availability_date)+'</td><td>'+esc(String(s.start_time||'').slice(0,5))+'</td><td>'+esc(String(s.end_time||'').slice(0,5))+'</td><td>'+esc(s.slot_duration+' min')+'</td><td>'+esc(s.active?'Active':'Disabled')+'</td><td><button class="btn btn-outline" onclick="toggleSchedule(\''+s.id+'\','+(!s.active)+')">'+(s.active?'Disable':'Enable')+'</button></td></tr>').join('')||'<tr><td colspan="7">No schedules.</td></tr>';
 }
 async function saveSchedule(){
@@ -255,31 +255,26 @@ async function toggleSchedule(id,active){
  const sb=await ensureAdmin();if(!sb)return;const r=await sb.from('availability').update({active}).eq('id',id);if(r.error){msg('globalMsg',r.error.message);return;}await loadSchedules();
 }
 async function loadPayments(){
- const sb=await ensureAdmin();if(!sb)return;
- const r=await sb.from('payments').select('id,created_at,amount,status,provider,provider_reference,patients(full_name)').order('created_at',{ascending:false});
- if(r.error){msg('globalMsg',r.error.message);return;}payments=r.data||[];
+ const r=await adminApi('listPayments');
+ if(!r.ok){msg('globalMsg',r.error||'Unable to load payments.');return;}
+ payments=r.payments||[];
  document.getElementById('paymentRows').innerHTML=payments.map(p=>'<tr><td>'+esc((p.created_at||'').slice(0,10))+'</td><td>'+esc(p.patients?.full_name||'')+'</td><td>'+esc(p.amount??'')+'</td><td><select id="pay-'+p.id+'"><option value="pending" '+(p.status==='pending'?'selected':'')+'>Pending</option><option value="paid" '+(p.status==='paid'?'selected':'')+'>Paid</option><option value="failed" '+(p.status==='failed'?'selected':'')+'>Failed</option><option value="refunded" '+(p.status==='refunded'?'selected':'')+'>Refunded</option></select></td><td>'+esc(p.provider||'')+'</td><td>'+esc(p.provider_reference||'')+'</td><td><button class="btn btn-primary" onclick="savePayment(\''+p.id+'\')">Save</button></td></tr>').join('')||'<tr><td colspan="7">No payments.</td></tr>';
 }
 async function savePayment(id){const sb=await ensureAdmin();if(!sb)return;const r=await sb.from('payments').update({status:document.getElementById('pay-'+id).value}).eq('id',id);if(r.error){msg('globalMsg',r.error.message);return;}await loadPayments();await refreshStats();}
 async function loadOrders(){
- const sb=await ensureAdmin();if(!sb)return;
- const r=await sb.from('medicine_orders').select('id,created_at,items,status,notes,patients(full_name)').order('created_at',{ascending:false});
- if(r.error){msg('globalMsg',r.error.message);return;}orders=r.data||[];
+ const r=await adminApi('listOrders');
+ if(!r.ok){msg('globalMsg',r.error||'Unable to load medicine orders.');return;}
+ orders=r.orders||[];
  document.getElementById('orderRows').innerHTML=orders.map(o=>'<tr><td>'+esc((o.created_at||'').slice(0,10))+'</td><td>'+esc(o.patients?.full_name||'')+'</td><td>'+esc(JSON.stringify(o.items||[]))+'</td><td><select id="ord-'+o.id+'"><option value="requested" '+(o.status==='requested'?'selected':'')+'>Requested</option><option value="confirmed" '+(o.status==='confirmed'?'selected':'')+'>Confirmed</option><option value="processing" '+(o.status==='processing'?'selected':'')+'>Processing</option><option value="shipped" '+(o.status==='shipped'?'selected':'')+'>Shipped</option><option value="completed" '+(o.status==='completed'?'selected':'')+'>Completed</option><option value="cancelled" '+(o.status==='cancelled'?'selected':'')+'>Cancelled</option></select></td><td>'+esc(o.notes||'')+'</td><td><button class="btn btn-primary" onclick="saveOrder(\''+o.id+'\')">Save</button></td></tr>').join('')||'<tr><td colspan="6">No medicine orders.</td></tr>';
 }
 async function saveOrder(id){const sb=await ensureAdmin();if(!sb)return;const r=await sb.from('medicine_orders').update({status:document.getElementById('ord-'+id).value}).eq('id',id);if(r.error){msg('globalMsg',r.error.message);return;}await loadOrders();}
 async function refreshStats(){
- const sb=await ensureAdmin();if(!sb)return;
- const [p,a,rx,pay]=await Promise.all([
-  sb.from('patients').select('id',{count:'exact',head:true}),
-  sb.from('appointments').select('id',{count:'exact',head:true}),
-  sb.from('prescriptions').select('id',{count:'exact',head:true}),
-  sb.from('payments').select('id',{count:'exact',head:true}).eq('status','pending')
- ]);
- document.getElementById('statPatients').textContent=p.count||0;
- document.getElementById('statAppointments').textContent=a.count||0;
- document.getElementById('statRx').textContent=rx.count||0;
- document.getElementById('statPayments').textContent=pay.count||0;
+ const r=await adminApi('getStats');
+ if(!r.ok){msg('globalMsg',r.error||'Unable to load admin statistics.');return;}
+ document.getElementById('statPatients').textContent=r.patients||0;
+ document.getElementById('statAppointments').textContent=r.appointments||0;
+ document.getElementById('statRx').textContent=r.prescriptions||0;
+ document.getElementById('statPayments').textContent=r.pendingPayments||0;
 }
 async function logout(){const sb=await getSupabaseClient();await sb.auth.signOut();location.href='admin-login.html';}
 
@@ -287,7 +282,11 @@ document.getElementById('avDate').value=new Date().toISOString().slice(0,10);
 (async()=>{
  const sb=await ensureAdmin();if(!sb)return;
  toggleCreateFields();
- await Promise.all([refreshStats(),loadUsers(),loadDoctors(),loadPatients(),loadAppointments(),loadSchedules(),loadPayments(),loadOrders()]);
+ try{
+   await Promise.all([refreshStats(),loadUsers(),loadDoctors(),loadPatients(),loadAppointments(),loadSchedules(),loadPayments(),loadOrders()]);
+ }catch(e){
+   msg('globalMsg',e?.message||String(e));
+ }
 })();
 </script>
 </body></html>

@@ -22,7 +22,7 @@ export default {
     const callerId = ctx.userClaims?.id;
     if (!callerId) return json({ error: "Authentication required" }, 401);
 
-    const { data: profile, error: profileError } = await ctx.supabase
+    const { data: profile, error: profileError } = await ctx.supabaseAdmin
       .from("profiles")
       .select("role,full_name")
       .eq("id", callerId)

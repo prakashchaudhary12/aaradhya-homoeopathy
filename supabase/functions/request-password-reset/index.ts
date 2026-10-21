@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from "npm:@supabase/supabase-js/cors";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {

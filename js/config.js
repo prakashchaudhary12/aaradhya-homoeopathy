@@ -47,38 +47,30 @@ async function apiGet(action, params = {}) {
     const sb = await getSupabaseClient();
 
     if (action === "appointments") {
-      let q = sb
-        .from("appointments")
-        .select("id,appointment_code,appointment_date,appointment_time,duration_minutes,reason,mode,payment_preference,payment_status,status,meet_link,patient_id,doctor_id,patients!inner(full_name,phone),doctors!inner(doctor_code,full_name)")
-        .order("appointment_date", { ascending: true })
-        .order("appointment_time", { ascending: true });
-
-
-      if (params.patientMobile) q = q.eq("patients.phone", params.patientMobile);
-
-      const { data, error } = await q;
+      const { data, error } = await sb.rpc("get_my_appointments");
       if (error) throw error;
 
+      const rows = Array.isArray(data) ? data : [];
       return {
         configured: true,
         ok: true,
-        data: (data || []).map(a => ({
-          "Appointment ID": a.id,
-          "Appointment Code": a.appointment_code,
-          "Patient ID": a.patient_id,
-          "Patient Name": a.patients?.full_name || "",
-          "Mobile": a.patients?.phone || "",
-          "Doctor": a.doctors?.doctor_code || "",
-          "Doctor Name": a.doctors?.full_name || "",
-          "Date": a.appointment_date,
-          "Time": String(a.appointment_time || "").slice(0, 5),
-          "Duration": a.duration_minutes,
-          "Reason": a.reason || "",
-          "Mode": a.mode || "",
-          "Payment Preference": a.payment_preference || "",
-          "Payment Status": a.payment_status || "",
-          "Status": a.status || "",
-          "Meet Link": a.meet_link || ""
+        data: rows.map(a => ({
+          "Appointment ID": a["Appointment ID"] || "",
+          "Appointment Code": a["Appointment Code"] || "",
+          "Patient ID": a["Patient ID"] || "",
+          "Patient Name": a["Patient Name"] || "",
+          "Mobile": a["Mobile"] || "",
+          "Doctor": a["Doctor"] || "",
+          "Doctor Name": a["Doctor Name"] || "",
+          "Date": a["Date"] || "",
+          "Time": String(a["Time"] || "").slice(0, 5),
+          "Duration": a["Duration"] || 15,
+          "Reason": a["Reason"] || "",
+          "Mode": a["Mode"] || "",
+          "Payment Preference": a["Payment Preference"] || "",
+          "Payment Status": a["Payment Status"] || "",
+          "Status": a["Status"] || "",
+          "Meet Link": a["Meet Link"] || ""
         }))
       };
     }

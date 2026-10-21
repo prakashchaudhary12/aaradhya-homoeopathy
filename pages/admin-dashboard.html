@@ -171,8 +171,6 @@ async function ensureAdmin(){
    adminSession=session.data.session;
  }
  currentUserId=adminSession.user.id;
- const p=await sb.from('profiles').select('role').eq('id',currentUserId).single();
- if(p.error||p.data.role!=='admin'){await sb.auth.signOut();location.href='admin-login.html';return null;}
  return sb;
 }
 
@@ -345,7 +343,17 @@ document.getElementById('avDate').value=new Date().toISOString().slice(0,10);
  const sb=await ensureAdmin();if(!sb)return;
  toggleCreateFields();
  try{
-   await Promise.all([refreshStats(),loadUsers(),loadDoctors(),loadPatients(),loadAppointments(),loadSchedules(),loadPayments(),loadOrders()]);
+   const authCheck=await adminApi('getStats');
+   if(!authCheck.ok){
+     await sb.auth.signOut();
+     location.href='admin-login.html';
+     return;
+   }
+   document.getElementById('statPatients').textContent=authCheck.patients||0;
+   document.getElementById('statAppointments').textContent=authCheck.appointments||0;
+   document.getElementById('statRx').textContent=authCheck.prescriptions||0;
+   document.getElementById('statPayments').textContent=authCheck.pendingPayments||0;
+   await Promise.all([loadUsers(),loadDoctors(),loadPatients(),loadAppointments(),loadSchedules(),loadPayments(),loadOrders()]);
  }catch(e){
    msg('globalMsg',e?.message||String(e));
  }

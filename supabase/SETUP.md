@@ -65,6 +65,19 @@ The admin login page checks this `profiles.role = 'admin'` value before opening 
 
 Never put the database password or Supabase secret/service-role key in GitHub or browser JavaScript.
 
+### Admin portal data and password management
+
+The Admin Portal reads Auth users through the secure Edge Function:
+`supabase/functions/admin-user-management/index.ts`.
+Deploy/redeploy this function after every code change. In the Supabase Dashboard, open **Edge Functions → admin-user-management → Edit → Deploy updates**. Supabase also supports CLI deployment with:
+```bash
+supabase functions deploy admin-user-management
+```
+The function uses `withSupabase({ auth: 'user' })` and `ctx.supabaseAdmin` so the browser never receives a secret/service-role key.
+
+The Admin Portal's Patients, Appointments, Schedule, Payments and Medicine Orders tabs also load through this same secure admin endpoint, so the portal is not dependent on browser RLS for admin reads.
+
+
 
 ## Forgot password by mobile
 

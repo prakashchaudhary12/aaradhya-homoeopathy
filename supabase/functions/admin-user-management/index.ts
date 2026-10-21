@@ -1,11 +1,6 @@
 // CI deployment marker: admin-user-management is deployed from GitHub Actions.
 import { withSupabase } from "npm:@supabase/server@1";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import { corsHeaders } from "npm:@supabase/supabase-js/cors";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -221,9 +216,6 @@ export default {
 
       return json({ ok: true, user: { id: user.id, role, full_name: fullName } });
     }
-
-
-
 
     if (action === "listPatients") {
       const { data, error } = await ctx.supabaseAdmin

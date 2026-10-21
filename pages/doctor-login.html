@@ -6,7 +6,7 @@
 <main class="login-wrap"><div class="login-card">
 <span class="eyebrow">DOCTOR PORTAL</span><h1>Doctor Login</h1>
 <p style="color:var(--muted)">Use the registered mobile number and password provided for your doctor account.</p>
-<div class="form-group"><label>Mobile number</label><input id="mobile" type="tel" inputmode="tel" autocomplete="tel" placeholder="98765 43210"></div>
+<div class="form-group"><label>Mobile number</label><input id="mobile" name="login_mobile" type="tel" inputmode="numeric" autocomplete="tel" maxlength="10" placeholder="98765 43210"></div>
 <div class="form-group"><label>Password</label><input id="password" type="password" autocomplete="current-password" placeholder="Enter password"></div>
 <button id="loginBtn" class="btn btn-primary full" onclick="login()">Login to Doctor Dashboard</button><div id="msg" class="notice" style="display:none;margin-top:14px"></div><p class="center"><a href="forgot-password.html?role=doctor">Forgot Password?</a></p>
 </div>
@@ -23,10 +23,10 @@
 </select>
 </div>
 <div class="form-group"><label>Full name</label><input id="signupName" type="text" autocomplete="name" placeholder="Doctor full name"></div>
-<div class="form-group"><label>Registered mobile number</label><input id="signupMobile" type="tel" inputmode="tel" autocomplete="tel" placeholder="98765 43210"></div>
+<div class="form-group"><label>Registered mobile number</label><input id="signupMobile" name="doctor_mobile" type="tel" inputmode="numeric" autocomplete="off" maxlength="10" placeholder="98765 43210">
 <div class="form-group"><label>Create password</label><input id="signupPassword" type="password" autocomplete="new-password" minlength="8" placeholder="Minimum 8 characters"></div>
 <div class="form-group"><label>Confirm password</label><input id="signupPassword2" type="password" autocomplete="new-password" minlength="8" placeholder="Re-enter password"></div>
-<button id="signupBtn" class="btn btn-dark full" onclick="createDoctorAccount()">Create Doctor Account</button>
+<button id="signupBtn" type="button" class="btn btn-dark full" onclick="createDoctorAccount()">Create Doctor Account</button>
 <div id="signupMsg" class="notice" style="display:none;margin-top:14px"></div>
 </div>
 </main>
@@ -42,13 +42,21 @@ async function createDoctorAccount(){
  const message=document.getElementById('signupMsg');
  const doctorCode=document.getElementById('signupDoctor').value;
  const name=document.getElementById('signupName').value.trim();
- const phone=cleanPhone(document.getElementById('signupMobile').value);
+ let phone=cleanPhone(document.getElementById('signupMobile').value);
+ const loginPhone=cleanPhone(document.getElementById('mobile').value);
+ if(phone.replace(/\D/g,'').length!==10 && loginPhone.replace(/\D/g,'').length===10){
+  phone=loginPhone;
+  document.getElementById('signupMobile').value=loginPhone.replace(/^\+91/,'');
+ }
  const password=document.getElementById('signupPassword').value;
  const password2=document.getElementById('signupPassword2').value;
  message.style.display='block';
  message.textContent='';
  if(!name)return message.textContent='Please enter the doctor name.';
- if(phone.replace(/\D/g,'').length!==10)return message.textContent='Please enter a valid 10-digit mobile number.';
+ if(phone.replace(/\D/g,'').length!==10){
+  document.getElementById('signupMobile').focus();
+  return message.textContent='Enter the 10-digit mobile number registered for this doctor.';
+ }
  if(password.length<8)return message.textContent='Password must be at least 8 characters.';
  if(password!==password2)return message.textContent='Passwords do not match.';
  const btn=document.getElementById('signupBtn');

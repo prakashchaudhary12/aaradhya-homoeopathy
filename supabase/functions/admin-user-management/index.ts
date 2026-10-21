@@ -1,3 +1,4 @@
+// CI deployment marker: admin-user-management is deployed from GitHub Actions.
 import { withSupabase } from "npm:@supabase/server@1";
 
 const corsHeaders = {

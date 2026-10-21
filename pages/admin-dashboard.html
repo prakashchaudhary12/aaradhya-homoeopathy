@@ -272,9 +272,17 @@ async function loadAppointments(){
  `).join('') || '<tr><td colspan="9">No appointments.</td></tr>';
 }
 async function saveAppointment(id){
- const sb=await ensureAdmin();if(!sb)return;
- const patch={appointment_date:document.getElementById('ad-'+id).value,appointment_time:document.getElementById('at-'+id).value,mode:document.getElementById('am-'+id).value,payment_status:document.getElementById('ap-'+id).value,status:document.getElementById('as-'+id).value,meet_link:document.getElementById('alink-'+id).value.trim()||null,updated_at:new Date().toISOString()};
- const r=await sb.from('appointments').update(patch).eq('id',id);if(r.error){msg('globalMsg',r.error.message);return;}await loadAppointments();await refreshStats();
+ const patch={
+   appointmentDate:document.getElementById('ad-'+id).value,
+   appointmentTime:document.getElementById('at-'+id).value,
+   mode:document.getElementById('am-'+id).value,
+   paymentStatus:document.getElementById('ap-'+id).value,
+   status:document.getElementById('as-'+id).value,
+   meetLink:document.getElementById('alink-'+id).value.trim()
+ };
+ const r=await adminApi('updateAppointment',{appointmentId:id,...patch});
+ if(!r.ok){msg('globalMsg',r.error||'Unable to update appointment.');return;}
+ await loadAppointments(); await refreshStats();
 }
 async function loadSchedules(){
  const r=await adminApi('listSchedules');
@@ -283,14 +291,22 @@ async function loadSchedules(){
  document.getElementById('scheduleRows').innerHTML=schedules.map(s=>'<tr><td>'+esc(s.doctors?.full_name||'')+'</td><td>'+esc(s.availability_date)+'</td><td>'+esc(String(s.start_time||'').slice(0,5))+'</td><td>'+esc(String(s.end_time||'').slice(0,5))+'</td><td>'+esc(s.slot_duration+' min')+'</td><td>'+esc(s.active?'Active':'Disabled')+'</td><td><button class="btn btn-outline" onclick="toggleSchedule(\''+s.id+'\','+(!s.active)+')">'+(s.active?'Disable':'Enable')+'</button></td></tr>').join('')||'<tr><td colspan="7">No schedules.</td></tr>';
 }
 async function saveSchedule(){
- const sb=await ensureAdmin();if(!sb)return;
- const code=document.getElementById('avDoctor').value,date=document.getElementById('avDate').value,start=document.getElementById('avStart').value,end=document.getElementById('avEnd').value,duration=Number(document.getElementById('avDuration').value);
- const d=await sb.from('doctors').select('id,doctor_code').eq('doctor_code',code).single();if(d.error){msg('scheduleMsg',d.error.message);return;}
- const r=await sb.from('availability').upsert({doctor_id:d.data.id,availability_date:date,start_time:start,end_time:end,slot_duration:duration,active:true},{onConflict:'doctor_id,availability_date,start_time,end_time'}).select().single();
- if(r.error){msg('scheduleMsg',r.error.message);return;}msg('scheduleMsg','Schedule saved.');await loadSchedules();
+ const payload={
+   doctorCode:document.getElementById('avDoctor').value,
+   date:document.getElementById('avDate').value,
+   startTime:document.getElementById('avStart').value,
+   endTime:document.getElementById('avEnd').value,
+   slotDuration:Number(document.getElementById('avDuration').value)
+ };
+ if(!payload.date||!payload.startTime||!payload.endTime){msg('scheduleMsg','Please enter a date, start time and end time.');return;}
+ const r=await adminApi('saveSchedule',payload);
+ if(!r.ok){msg('scheduleMsg',r.error||'Unable to save schedule.');return;}
+ msg('scheduleMsg','Schedule saved successfully.'); await loadSchedules();
 }
 async function toggleSchedule(id,active){
- const sb=await ensureAdmin();if(!sb)return;const r=await sb.from('availability').update({active}).eq('id',id);if(r.error){msg('globalMsg',r.error.message);return;}await loadSchedules();
+ const r=await adminApi('toggleSchedule',{scheduleId:id,active});
+ if(!r.ok){msg('globalMsg',r.error||'Unable to update schedule.');return;}
+ await loadSchedules();
 }
 async function loadPayments(){
  const r=await adminApi('listPayments');
@@ -298,14 +314,22 @@ async function loadPayments(){
  payments=r.payments||[];
  document.getElementById('paymentRows').innerHTML=payments.map(p=>'<tr><td>'+esc((p.created_at||'').slice(0,10))+'</td><td>'+esc(p.patients?.full_name||'')+'</td><td>'+esc(p.amount??'')+'</td><td><select id="pay-'+p.id+'"><option value="pending" '+(p.status==='pending'?'selected':'')+'>Pending</option><option value="paid" '+(p.status==='paid'?'selected':'')+'>Paid</option><option value="failed" '+(p.status==='failed'?'selected':'')+'>Failed</option><option value="refunded" '+(p.status==='refunded'?'selected':'')+'>Refunded</option></select></td><td>'+esc(p.provider||'')+'</td><td>'+esc(p.provider_reference||'')+'</td><td><button class="btn btn-primary" onclick="savePayment(\''+p.id+'\')">Save</button></td></tr>').join('')||'<tr><td colspan="7">No payments.</td></tr>';
 }
-async function savePayment(id){const sb=await ensureAdmin();if(!sb)return;const r=await sb.from('payments').update({status:document.getElementById('pay-'+id).value}).eq('id',id);if(r.error){msg('globalMsg',r.error.message);return;}await loadPayments();await refreshStats();}
+async function savePayment(id){
+ const r=await adminApi('updatePayment',{paymentId:id,status:document.getElementById('pay-'+id).value});
+ if(!r.ok){msg('globalMsg',r.error||'Unable to update payment.');return;}
+ await loadPayments(); await refreshStats();
+}
 async function loadOrders(){
  const r=await adminApi('listOrders');
  if(!r.ok){msg('globalMsg',r.error||'Unable to load medicine orders.');return;}
  orders=r.orders||[];
  document.getElementById('orderRows').innerHTML=orders.map(o=>'<tr><td>'+esc((o.created_at||'').slice(0,10))+'</td><td>'+esc(o.patients?.full_name||'')+'</td><td>'+esc(JSON.stringify(o.items||[]))+'</td><td><select id="ord-'+o.id+'"><option value="requested" '+(o.status==='requested'?'selected':'')+'>Requested</option><option value="confirmed" '+(o.status==='confirmed'?'selected':'')+'>Confirmed</option><option value="processing" '+(o.status==='processing'?'selected':'')+'>Processing</option><option value="shipped" '+(o.status==='shipped'?'selected':'')+'>Shipped</option><option value="completed" '+(o.status==='completed'?'selected':'')+'>Completed</option><option value="cancelled" '+(o.status==='cancelled'?'selected':'')+'>Cancelled</option></select></td><td>'+esc(o.notes||'')+'</td><td><button class="btn btn-primary" onclick="saveOrder(\''+o.id+'\')">Save</button></td></tr>').join('')||'<tr><td colspan="6">No medicine orders.</td></tr>';
 }
-async function saveOrder(id){const sb=await ensureAdmin();if(!sb)return;const r=await sb.from('medicine_orders').update({status:document.getElementById('ord-'+id).value}).eq('id',id);if(r.error){msg('globalMsg',r.error.message);return;}await loadOrders();}
+async function saveOrder(id){
+ const r=await adminApi('updateOrder',{orderId:id,status:document.getElementById('ord-'+id).value});
+ if(!r.ok){msg('globalMsg',r.error||'Unable to update medicine order.');return;}
+ await loadOrders();
+}
 async function refreshStats(){
  const r=await adminApi('getStats');
  if(!r.ok){msg('globalMsg',r.error||'Unable to load admin statistics.');return;}

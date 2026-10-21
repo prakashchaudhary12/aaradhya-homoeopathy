@@ -92,7 +92,7 @@
 <section id="tab-patients" class="admin-section">
 <section class="panel">
 <div class="admin-actions"><h2 style="font-size:24px;margin-right:auto">Patients</h2><button class="btn btn-outline" onclick="loadPatients()">Refresh</button></div>
-<div class="table-wrap"><table class="table"><thead><tr><th>Patient ID</th><th>Name</th><th>Mobile</th><th>Created</th><th>Action</th></tr></thead><tbody id="patientRows"></tbody></table></div>
+<div class="table-wrap"><table class="table"><thead><tr><th>Patient ID</th><th>Database UUID</th><th>Name</th><th>Mobile</th><th>Created</th><th>Action</th></tr></thead><tbody id="patientRows"></tbody></table></div>
 </section>
 </section>
 
@@ -225,7 +225,7 @@ async function loadPatients(){
  const r=await adminApi('listPatients');
  if(!r.ok){msg('globalMsg',r.error||'Unable to load patients.');return;}
  patients=r.patients||[];
- document.getElementById('patientRows').innerHTML=patients.map(p=>'<tr><td>'+esc(p.patient_code)+'</td><td><input id="pname-'+p.id+'" value="'+esc(p.full_name)+'"></td><td><input id="pphone-'+p.id+'" value="'+esc(p.phone)+'" inputmode="numeric"></td><td>'+esc((p.created_at||'').slice(0,10))+'</td><td><button class="btn btn-primary" onclick="savePatient(\''+p.id+'\')">Save</button></td></tr>').join('')||'<tr><td colspan="5">No patients.</td></tr>';
+ document.getElementById('patientRows').innerHTML=patients.map(p=>'<tr><td><strong>'+esc(p.patient_code||p.id)+'</strong></td><td style="font-size:11px;word-break:break-all">'+esc(p.id)+'</td><td><input id="pname-'+p.id+'" value="'+esc(p.full_name||'')+'"></td><td><input id="pphone-'+p.id+'" value="'+esc(p.phone||'')+'" inputmode="numeric"></td><td>'+esc((p.created_at||'').slice(0,10))+'</td><td><button class="btn btn-primary" onclick="savePatient(\''+p.id+'\')">Save</button></td></tr>').join('')||'<tr><td colspan="6">No patients.</td></tr>';
 }
 async function savePatient(id){
  const fullName=document.getElementById('pname-'+id).value.trim(),phone=cleanPhone(document.getElementById('pphone-'+id).value);

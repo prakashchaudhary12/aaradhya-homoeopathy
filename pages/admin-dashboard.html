@@ -142,6 +142,7 @@
 <script>
 let users=[], doctors=[], patients=[], appointments=[], schedules=[], payments=[], orders=[];
 let currentUserId='';
+let adminSession=null;
 
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function cleanPhone(v){const d=String(v||'').replace(/\D/g,'');if(d.length===10)return '+91'+d;if(d.length===12&&d.startsWith('91'))return '+'+d;return String(v||'').trim();}
@@ -162,8 +163,14 @@ function toggleCreateFields(){
 async function ensureAdmin(){
  const sb=await getSupabaseClient();
  const session=await sb.auth.getSession();
- if(!session.data.session){location.href='admin-login.html';return null;}
- currentUserId=session.data.session.user.id;
+ if(!session.data.session){
+   const refreshed=await sb.auth.refreshSession();
+   if(refreshed.error||!refreshed.data.session){location.href='admin-login.html';return null;}
+   adminSession=refreshed.data.session;
+ }else{
+   adminSession=session.data.session;
+ }
+ currentUserId=adminSession.user.id;
  const p=await sb.from('profiles').select('role').eq('id',currentUserId).single();
  if(p.error||p.data.role!=='admin'){await sb.auth.signOut();location.href='admin-login.html';return null;}
  return sb;

@@ -76,6 +76,6 @@ async function requestMedicines(){
  try{const r=await apiPost('createOrder',{items:[{request:notes}],notes});if(!r.ok)throw new Error(r.error);m.style.display='block';m.textContent='Medicine request submitted.';document.getElementById('orderNotes').value='';}
  catch(e){m.style.display='block';m.textContent=e.message||'Unable to submit medicine request.';}
 }
-async function logout(){const sb=await getSupabaseClient();await sb.auth.signOut();location.href='login.html';}
+async function logout(){const sb=await getSupabaseClient();try{await sb.rpc('clear_admin_test_portal');}catch(_){}await sb.auth.signOut();location.href='login.html';}
 init();
 </script></body></html>

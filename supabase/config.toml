@@ -2,3 +2,6 @@
 # Password recovery must be callable before the user is authenticated.
 [functions.request-password-reset]
 verify_jwt = false
+
+[functions.admin-user-management]
+verify_jwt = false

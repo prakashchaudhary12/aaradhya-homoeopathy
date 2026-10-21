@@ -18,7 +18,8 @@ export default {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
     if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
-    const callerId = ctx.userClaims?.sub;
+    // With @supabase/server, userClaims.id is the authenticated user's UUID.
+    const callerId = ctx.userClaims?.id;
     if (!callerId) return json({ error: "Authentication required" }, 401);
 
     const { data: profile, error: profileError } = await ctx.supabase

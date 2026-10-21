@@ -226,12 +226,43 @@ async function savePatient(id){
  const r=await adminApi('updatePatient',{patientId:id,fullName,phone});if(!r.ok){msg('globalMsg',r.error);return;}await loadPatients();
 }
 async function loadAppointments(){
- const sb=await ensureAdmin();if(!sb)return;
- const r=await sb.from('appointments').select('id,appointment_date,appointment_time,mode,payment_status,status,meet_link,patient_id,doctor_id,patients(full_name,phone),doctors(full_name,doctor_code)').order('appointment_date',{ascending:false}).order('appointment_time',{ascending:false});
- if(r.error){msg('globalMsg',r.error.message);return;}appointments=r.data||[];
- document.getElementById('appointmentRows').innerHTML=appointments.map(a=>{
-  return '<tr><td><input id="ad-'+a.id+'" type="date" value="'+esc(a.appointment_date)+'"></td><td><input id="at-'+a.id+'" type="time" value="'+esc(String(a.appointment_time||'').slice(0,5))+'"></td><td>'+esc(a.patients?.full_name||'')+'</td><td>'+esc(a.doctors?.full_name||'')+'</td><td><select id="am-'+a.id+'"><option value="offline" '+(a.mode==='offline'?'selected':'')+'>Offline</option><option value="online" '+(a.mode==='online'?'selected':'')+'>Online</option></select></td><td><select id="ap-'+a.id+'"><option value="pending" '+(a.payment_status==='pending'?'selected':'')+'>Pending</option><option value="paid" '+(a.payment_status==='paid'?'selected':'')+'>Paid</option><option value="failed" '+(a.payment_status==='failed'?'selected':'')+'>Failed</option><option value="refunded" '+(a.payment_status==='refunded'?'selected':'')+'>Refunded</option><option value="not_required" '+(a.payment_status==='not_required'?'selected':'')+'>Not required</option></select></td><td><select id="as-'+a.id+'"><option '+(a.status==='Confirmed'?'selected':'')+'>Confirmed</option><option '+(a.status==='Pending'?'selected':'')+'>Pending</option><option '+(a.status==='Completed'?'selected':'')+'>Completed</option><option '+(a.status==='Cancelled'?'selected':'')+'>Cancelled</option><option '+(a.status==='No Show'?'selected':'')+'>No Show</option></select></td><td><input id="alink-'+a.id+'" value="'+esc(a.meet_link||'')" placeholder="https://meet.google.com/..."></td><td><button class="btn btn-primary" onclick="saveAppointment(\''+a.id+'\')">Save</button></td></tr>';
- }).join('')||'<tr><td colspan="9">No appointments.</td></tr>';
+ const r=await adminApi('listAppointments');
+ if(!r.ok){msg('globalMsg',r.error||'Unable to load appointments.');return;}
+ appointments=r.appointments||[];
+ document.getElementById('appointmentRows').innerHTML=appointments.map(a => `
+   <tr>
+     <td><input id="ad-${a.id}" type="date" value="${esc(a.appointment_date)}"></td>
+     <td><input id="at-${a.id}" type="time" value="${esc(String(a.appointment_time||'').slice(0,5))}"></td>
+     <td>${esc(a.patients?.full_name||'')}</td>
+     <td>${esc(a.doctors?.full_name||'')}</td>
+     <td>
+       <select id="am-${a.id}">
+         <option value="offline" ${a.mode==='offline'?'selected':''}>Offline</option>
+         <option value="online" ${a.mode==='online'?'selected':''}>Online</option>
+       </select>
+     </td>
+     <td>
+       <select id="ap-${a.id}">
+         <option value="pending" ${a.payment_status==='pending'?'selected':''}>Pending</option>
+         <option value="paid" ${a.payment_status==='paid'?'selected':''}>Paid</option>
+         <option value="failed" ${a.payment_status==='failed'?'selected':''}>Failed</option>
+         <option value="refunded" ${a.payment_status==='refunded'?'selected':''}>Refunded</option>
+         <option value="not_required" ${a.payment_status==='not_required'?'selected':''}>Not required</option>
+       </select>
+     </td>
+     <td>
+       <select id="as-${a.id}">
+         <option value="Confirmed" ${a.status==='Confirmed'?'selected':''}>Confirmed</option>
+         <option value="Pending" ${a.status==='Pending'?'selected':''}>Pending</option>
+         <option value="Completed" ${a.status==='Completed'?'selected':''}>Completed</option>
+         <option value="Cancelled" ${a.status==='Cancelled'?'selected':''}>Cancelled</option>
+         <option value="No Show" ${a.status==='No Show'?'selected':''}>No Show</option>
+       </select>
+     </td>
+     <td><input id="alink-${a.id}" value="${esc(a.meet_link||'')}" placeholder="https://meet.google.com/..."></td>
+     <td><button class="btn btn-primary" onclick="saveAppointment('${a.id}')">Save</button></td>
+   </tr>
+ `).join('') || '<tr><td colspan="9">No appointments.</td></tr>';
 }
 async function saveAppointment(id){
  const sb=await ensureAdmin();if(!sb)return;

@@ -1,4 +1,5 @@
-function setLanguage(){return;}\n
+function setLanguage(){return;}
+
 (function(){
   const slides=[...document.querySelectorAll('#doctorCarousel .hero-slide')];
   const dots=[...document.querySelectorAll('#doctorCarousel .carousel-dot')];

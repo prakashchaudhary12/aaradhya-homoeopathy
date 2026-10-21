@@ -8,7 +8,7 @@
 <p style="color:var(--muted)">Use the registered mobile number and password provided for your doctor account.</p>
 <div class="form-group"><label>Mobile number</label><input id="mobile" type="tel" inputmode="tel" autocomplete="tel" placeholder="98765 43210"></div>
 <div class="form-group"><label>Password</label><input id="password" type="password" autocomplete="current-password" placeholder="Enter password"></div>
-<button id="loginBtn" class="btn btn-primary full" onclick="login()">Login to Doctor Dashboard</button><p class="center"><a href="forgot-password.html?role=doctor">Forgot Password?</a></p>
+<button id="loginBtn" class="btn btn-primary full" onclick="login()">Login to Doctor Dashboard</button><div id="msg" class="notice" style="display:none;margin-top:14px"></div><p class="center"><a href="forgot-password.html?role=doctor">Forgot Password?</a></p>
 </div></main>
 <script src="../js/config.js"></script>
 <script>
@@ -21,6 +21,7 @@ function cleanPhone(v){
 async function login(){
  const phone=cleanPhone(document.getElementById('mobile').value),password=document.getElementById('password').value;
  const msg=document.getElementById('msg');
+ if(msg) msg.style.display='block';
  if(phone.replace(/\D/g,'').length<10)return msg.textContent='Please enter a valid mobile number.';
  if(!password)return msg.textContent='Please enter your password.';
  document.getElementById('loginBtn').disabled=true;

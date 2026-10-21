@@ -29,7 +29,7 @@ async function init(){
   const doctorResult=await sb.rpc('get_my_doctor');
   if(doctorResult.error)throw doctorResult.error;
   const doc=doctorResult.data;
-  document.getElementById('doctorHeader').textContent=doc.fullName;document.getElementById('welcome').textContent='Welcome, '+doc.fullName;document.getElementById('date').value=todayISO();document.getElementById('rxDate').value=todayISO();
+  document.getElementById('doctorHeader').textContent=doc.fullName+(doc.testMode?' · TEST MODE':'');document.getElementById('welcome').textContent='Welcome, '+doc.fullName;document.getElementById('date').value=todayISO();document.getElementById('rxDate').value=todayISO();
   await render();
  }catch(e){document.getElementById('appointmentRows').innerHTML='<tr><td colspan="7">'+esc(e.message||'Unable to load doctor dashboard.')+'</td></tr>';}
 }

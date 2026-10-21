@@ -24,6 +24,23 @@ async function init(){
   const profile=claim.data||{};
   document.getElementById('n').textContent=profile.fullName||'Patient';
   document.getElementById('phoneText').textContent=profile.phone||'';
+
+  // One-time recovery for an appointment created by an older version of the site
+  // that stored the booking only in browser localStorage.
+  try{
+    const legacy=JSON.parse(localStorage.getItem('appointment')||'null');
+    if(legacy && legacy.doctor && legacy.date && legacy.time){
+      await sb.rpc('sync_my_legacy_booking',{
+        p_doctor_code:legacy.doctor,
+        p_appointment_date:legacy.date,
+        p_appointment_time:legacy.time,
+        p_reason:legacy.reason||null,
+        p_mode:legacy.mode||'offline',
+        p_payment_preference:legacy.payment||null
+      });
+    }
+  }catch(_){}
+
   const r=await apiGet('appointments');
   if(!r.ok) throw new Error(r.error||'Unable to load appointments');
   const apps=r.data||[], today=new Date().toISOString().slice(0,10);

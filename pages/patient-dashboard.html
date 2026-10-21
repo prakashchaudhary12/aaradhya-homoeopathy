@@ -7,6 +7,7 @@
 <div class="page-title"><span class="eyebrow">PATIENT DASHBOARD</span><h1>Welcome, <span id="n">Patient</span></h1><p id="phoneText" style="color:var(--muted)"></p></div>
 <div class="dashboard-grid"><div class="stat"><small>Next appointment</small><strong id="t">—</strong></div><div class="stat"><small>Doctor</small><strong id="doctorName">—</strong></div><div class="stat"><small>Status</small><strong id="status" style="font-size:20px">—</strong></div><div class="stat"><small>Prescriptions</small><strong id="rxCount" style="font-size:20px">0</strong></div></div>
 <section class="panel"><h2 style="font-size:25px">Upcoming appointment</h2><div id="a" class="notice">Loading...</div><button id="meetBtn" class="btn btn-dark" style="display:none" onclick="joinMeet()">Join Google Meet</button></section>
+<section class="panel" style="margin-top:22px"><h2 style="font-size:25px">My appointments</h2><div class="table-wrap"><table class="table"><thead><tr><th>Date</th><th>Time</th><th>Doctor</th><th>Mode</th><th>Status</th><th>Payment</th></tr></thead><tbody id="appointmentHistory"></tbody></table></div></section>
 <section class="panel" style="margin-top:22px"><h2 style="font-size:25px">My prescriptions</h2><div id="prescriptionList"><p style="color:var(--muted)">Loading prescriptions...</p></div></section>
 <section class="panel" style="margin-top:22px"><h2 style="font-size:25px">Medicine request</h2><textarea id="orderNotes" rows="3" style="width:100%;padding:13px;border:1px solid var(--line);border-radius:10px;font:inherit" placeholder="Enter the medicines you need"></textarea><button class="btn btn-primary" style="margin-top:12px" onclick="requestMedicines()">Request Medicines</button><div id="orderMsg" class="notice" style="display:none"></div></section>
 </main>
@@ -26,6 +27,9 @@ async function init(){
   const r=await apiGet('appointments');
   if(!r.ok) throw new Error(r.error||'Unable to load appointments');
   const apps=r.data||[], today=new Date().toISOString().slice(0,10);
+  document.getElementById('appointmentHistory').innerHTML=apps.length
+   ? apps.map(x=>'<tr><td>'+escapeHtml(x.Date)+'</td><td>'+escapeHtml(x.Time)+'</td><td>'+escapeHtml(x['Doctor Name'])+'</td><td>'+escapeHtml(x.Mode)+'</td><td>'+escapeHtml(x.Status)+'</td><td>'+escapeHtml(x['Payment Status'])+'</td></tr>').join('')
+   : '<tr><td colspan="6">No appointments found for this account.</td></tr>';
   latestAppointment=apps.find(x=>String(x.Date)>=today&&x.Status!=='Cancelled'&&x.Status!=='Completed')||apps[0];
   if(latestAppointment){
    const dn=latestAppointment['Doctor Name']||(latestAppointment.Doctor==='op'?'Dr. O.P. Singh':'Dr. Reshma Singh');

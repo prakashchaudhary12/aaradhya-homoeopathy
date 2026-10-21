@@ -55,6 +55,6 @@ async function saveAvailability(){
  try{const r=await apiPost('setAvailability',{date:document.getElementById('date').value,startTime:document.getElementById('start').value,endTime:document.getElementById('end').value,slotDuration:Number(document.getElementById('duration').value)});if(!r.ok)throw new Error(r.error);m.style.display='block';m.textContent='Availability saved.';}
  catch(e){m.style.display='block';m.textContent=e.message||'Unable to save availability.';}
 }
-async function logout(){const sb=await getSupabaseClient();await sb.auth.signOut();location.href='doctor-login.html';}
+async function logout(){const sb=await getSupabaseClient();try{await sb.rpc('clear_admin_test_portal');}catch(_){}await sb.auth.signOut();location.href='doctor-login.html';}
 init();setInterval(()=>render().catch(()=>{}),15000);
 </script></body></html>

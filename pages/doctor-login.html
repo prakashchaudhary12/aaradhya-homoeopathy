@@ -5,13 +5,15 @@
 <header class="topbar"><a class="brand" href="../index.html"><span class="brand-mark">✚</span><div><strong>Aaradhya's Homoeopathy</strong><small>Doctor portal</small></div></a><a class="btn btn-outline" href="../index.html">Back to website</a></header>
 <main class="login-wrap"><div class="login-card">
 <span class="eyebrow">DOCTOR PORTAL</span><h1>Doctor Login</h1>
-<p style="color:var(--muted)">Use the registered mobile number and password provided for your doctor account.</p>
-<div class="form-group"><label>Mobile number</label><input id="mobile" name="login_mobile" type="tel" inputmode="numeric" autocomplete="tel" maxlength="10" placeholder="98765 43210"></div>
+<p style="color:var(--muted)">Use the registered mobile number and password provided for your doctor account. For testing, the existing Admin email and password can open Doctor Test Mode.</p>
+<div class="form-group"><label>Mobile number or Admin email (test)</label><input id="mobile" name="login_mobile" type="text" inputmode="email" autocomplete="username" placeholder="98765 43210 or admin@example.com"></div>
+<div class="form-group" id="testDoctorWrap" style="display:none"><label>Doctor to test</label><select id="testDoctor"><option value="reshma">Dr. Reshma Singh</option><option value="op">Dr. O.P. Singh</option></select></div>
 <div class="form-group"><label>Password</label><input id="password" type="password" autocomplete="current-password" placeholder="Enter password"></div>
 <button id="loginBtn" class="btn btn-primary full" onclick="login()">Login to Doctor Dashboard</button><div id="msg" class="notice" style="display:none;margin-top:14px"></div><p class="center"><a href="forgot-password.html?role=doctor">Forgot Password?</a></p>
 </div>
 
 <div class="login-card" style="margin-top:18px">
+
 <span class="eyebrow">NEW DOCTOR</span>
 <h2 style="font-size:26px;margin:6px 0 8px">Create Doctor Account</h2>
 <p style="color:var(--muted)">Use the mobile number already registered by the clinic for the selected doctor. This creates the password login for that doctor.</p>
@@ -87,20 +89,40 @@ async function createDoctorAccount(){
  }
 }
 
+function syncTestDoctorField(){
+ const value=document.getElementById('mobile').value.trim();
+ document.getElementById('testDoctorWrap').style.display=value.includes('@')?'block':'none';
+}
+document.getElementById('mobile').addEventListener('input',syncTestDoctorField);
+
 async function login(){
- const phone=cleanPhone(document.getElementById('mobile').value),password=document.getElementById('password').value;
+ const identifier=document.getElementById('mobile').value.trim();
+ const isAdminTest=identifier.includes('@');
+ const phone=cleanPhone(identifier),password=document.getElementById('password').value;
  const msg=document.getElementById('msg');
  if(msg) msg.style.display='block';
- if(phone.replace(/\D/g,'').length<10)return msg.textContent='Please enter a valid mobile number.';
+ if(!isAdminTest && phone.replace(/\D/g,'').length<10)return msg.textContent='Please enter a valid 10-digit mobile number.';
+ if(isAdminTest && !document.getElementById('testDoctor').value)return msg.textContent='Select a doctor for test mode.';
  if(!password)return msg.textContent='Please enter your password.';
  document.getElementById('loginBtn').disabled=true;
  try{
   const sb=await getSupabaseClient();
-  const result=await sb.auth.signInWithPassword({phone,password});
+  const result=isAdminTest
+   ? await sb.auth.signInWithPassword({email:identifier,password})
+   : await sb.auth.signInWithPassword({phone,password});
   if(result.error)throw result.error;
-  const claim=await sb.rpc('claim_doctor_account_by_phone');
-  if(claim.error)throw claim.error;
-  localStorage.setItem('doctorProfile',JSON.stringify(claim.data));
+
+  if(isAdminTest){
+    const test=await sb.rpc('set_admin_test_portal',{p_portal_role:'doctor',p_doctor_code:document.getElementById('testDoctor').value});
+    if(test.error)throw test.error;
+    const doc=await sb.rpc('get_my_doctor');
+    if(doc.error)throw doc.error;
+    localStorage.setItem('doctorProfile',JSON.stringify(doc.data));
+  }else{
+    const claim=await sb.rpc('claim_doctor_account_by_phone');
+    if(claim.error)throw claim.error;
+    localStorage.setItem('doctorProfile',JSON.stringify(claim.data));
+  }
   location.href='doctor-dashboard.html';
  }catch(e){msg.textContent=e.message||'Unable to sign in.';}
  finally{document.getElementById('loginBtn').disabled=false;}
